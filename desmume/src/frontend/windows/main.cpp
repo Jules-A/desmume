@@ -53,7 +53,7 @@
 #include "GPU.h"
 #include "SPU.h"
 #include "OGLRender.h"
-#include "OGLRender_3_2.h"
+#include "OGLRender_3_3.h"
 #include "rasterize.h"
 #include "gfx3d.h"
 #include "render3D.h"
@@ -440,7 +440,7 @@ SoundInterface_struct *SNDCoreList[] = {
 
 GPU3DInterface *core3DList[] = {
 	&gpu3DNull,
-	&gpu3Dgl_3_2,
+	&gpu3Dgl_3_3,
 	&gpu3DRasterize,
 	&gpu3DglOld,
 	NULL
@@ -1891,9 +1891,9 @@ int _main()
 
 	dwMainThread = GetCurrentThreadId();
 
-	//enable opengl 3.2 driver in this port
-	OGLLoadEntryPoints_3_2_Func = OGLLoadEntryPoints_3_2;
-	OGLCreateRenderer_3_2_Func = OGLCreateRenderer_3_2;
+	//enable opengl 3.3 driver in this port
+	OGLLoadEntryPoints_3_3_Func = OGLLoadEntryPoints_3_3;
+	OGLCreateRenderer_3_3_Func = OGLCreateRenderer_3_3;
 
 	bool isSocketsSupported = false;
 	bool isPCapSupported = false;
@@ -2354,8 +2354,8 @@ int _main()
 	if(cmdline.render3d == COMMANDLINE_RENDER3D_NONE) cur3DCore = RENDERID_NULL;
 	if(cmdline.render3d == COMMANDLINE_RENDER3D_SW) cur3DCore = GPU3D_SWRAST;
 	if(cmdline.render3d == COMMANDLINE_RENDER3D_OLDGL) cur3DCore = GPU3D_OPENGL_OLD;
-	if(cmdline.render3d == COMMANDLINE_RENDER3D_GL) cur3DCore = GPU3D_OPENGL_3_2; //no way of forcing it, at least not right now. I dont care.
-	if(cmdline.render3d == COMMANDLINE_RENDER3D_AUTOGL) cur3DCore = GPU3D_OPENGL_3_2; //this will fallback i guess
+	if(cmdline.render3d == COMMANDLINE_RENDER3D_GL) cur3DCore = GPU3D_OPENGL_3_3; //no way of forcing it, at least not right now. I dont care.
+	if(cmdline.render3d == COMMANDLINE_RENDER3D_AUTOGL) cur3DCore = GPU3D_OPENGL_3_3; //this will fallback i guess
 
 	CommonSettings.GFX3D_HighResolutionInterpolateColor = GetPrivateProfileBool("3D", "HighResolutionInterpolateColor", 1, IniName);
 	CommonSettings.GFX3D_EdgeMark = GetPrivateProfileBool("3D", "EnableEdgeMark", 1, IniName);
@@ -5667,7 +5667,7 @@ void Change3DCoreWithFallbackAndSave(int newCore)
 		goto DONE;
 	}
 
-	if(!GPU->Change3DRendererByID(GPU3D_OPENGL_3_2))
+	if(!GPU->Change3DRendererByID(GPU3D_OPENGL_3_3))
 	{
 		printf("falling back to 3d core: %s\n",core3DList[GPU3D_OPENGL_OLD]->name);
 		goto TRY_OGL_OLD;

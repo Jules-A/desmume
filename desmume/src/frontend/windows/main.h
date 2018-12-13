@@ -59,7 +59,7 @@ extern bool frameCounterDisplay;
 extern bool FpsDisplay;
 extern bool ShowLagFrameCounter;
 
-#define GPU3D_OPENGL_3_2 1
+#define GPU3D_OPENGL_3_3 1
 #define GPU3D_SWRAST 2
 #define GPU3D_OPENGL_OLD 3
 

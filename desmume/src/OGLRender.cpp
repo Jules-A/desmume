@@ -104,8 +104,8 @@ bool (*oglrender_init)() = NULL;
 bool (*oglrender_beginOpenGL)() = NULL;
 void (*oglrender_endOpenGL)() = NULL;
 bool (*oglrender_framebufferDidResizeCallback)(size_t w, size_t h) = NULL;
-void (*OGLLoadEntryPoints_3_2_Func)() = NULL;
-void (*OGLCreateRenderer_3_2_Func)(OpenGLRenderer **rendererPtr) = NULL;
+void (*OGLLoadEntryPoints_3_3_Func)() = NULL;
+void (*OGLCreateRenderer_3_3_Func)(OpenGLRenderer **rendererPtr) = NULL;
 
 //------------------------------------------------------------
 
@@ -834,7 +834,7 @@ void OpenGLTexture::SetUpscalingBuffer(void *upscaleBuffer)
 	this->_upscaleBuffer = (u32 *)upscaleBuffer;
 }
 
-template<bool require_profile, bool enable_3_2>
+template<bool require_profile, bool enable_3_3>
 static Render3D* OpenGLRendererCreate()
 {
 	OpenGLRenderer *newRenderer = NULL;
@@ -852,7 +852,7 @@ static Render3D* OpenGLRendererCreate()
 	
 	if (!BEGINGL())
 	{
-		INFO("OpenGL<%s,%s>: Could not initialize -- BEGINGL() failed.\n",require_profile?"force":"auto",enable_3_2?"3_2":"old");
+		INFO("OpenGL<%s,%s>: Could not initialize -- BEGINGL() failed.\n",require_profile?"force":"auto",enable_3_3?"3_3":"old");
 		return NULL;
 	}
 	
@@ -886,13 +886,13 @@ static Render3D* OpenGLRendererCreate()
 	}
 	
 	// Create new OpenGL rendering object
-	if (enable_3_2)
+	if (enable_3_3)
 	{
-		if (OGLLoadEntryPoints_3_2_Func != NULL && OGLCreateRenderer_3_2_Func != NULL)
+		if (OGLLoadEntryPoints_3_3_Func != NULL && OGLCreateRenderer_3_3_Func != NULL)
 		{
-			OGLLoadEntryPoints_3_2_Func();
+			OGLLoadEntryPoints_3_3_Func();
 			OGLLoadEntryPoints_Legacy(); //zero 04-feb-2013 - this seems to be necessary as well
-			OGLCreateRenderer_3_2_Func(&newRenderer);
+			OGLCreateRenderer_3_3_Func(&newRenderer);
 		}
 		else 
 		{
@@ -904,7 +904,7 @@ static Render3D* OpenGLRendererCreate()
 		}
 	}
 	
-	// If the renderer doesn't initialize with OpenGL v3.2 or higher, fall back
+	// If the renderer doesn't initialize with OpenGL v3.3 or higher, fall back
 	// to one of the lower versions.
 	if (newRenderer == NULL)
 	{
@@ -963,7 +963,7 @@ static Render3D* OpenGLRendererCreate()
 			INFO("OpenGL: PBOs are not available, even though this version of OpenGL requires them. Disabling 3D renderer.\n[ Driver Info -\n    Version: %s\n    Vendor: %s\n    Renderer: %s ]\n",
 				 oglVersionString, oglVendorString, oglRendererString);
 		}
-		else if (IsVersionSupported(3, 0, 0) && (error == OGLERROR_FBO_CREATE_ERROR) && (OGLLoadEntryPoints_3_2_Func != NULL))
+		else if (IsVersionSupported(3, 0, 0) && (error == OGLERROR_FBO_CREATE_ERROR) && (OGLLoadEntryPoints_3_3_Func != NULL))
 		{
 			INFO("OpenGL: FBOs are not available, even though this version of OpenGL requires them. Disabling 3D renderer.\n[ Driver Info -\n    Version: %s\n    Vendor: %s\n    Renderer: %s ]\n",
 				 oglVersionString, oglVendorString, oglRendererString);
@@ -1007,7 +1007,7 @@ static void OpenGLRendererDestroy()
 	ENDGL();
 }
 
-//automatically select 3.2 or old profile depending on whether 3.2 is available
+//automatically select 3.3 or old profile depending on whether 3.3 is available
 GPU3DInterface gpu3Dgl = {
 	"OpenGL",
 	OpenGLRendererCreate<false,true>,
@@ -1022,8 +1022,8 @@ GPU3DInterface gpu3DglOld = {
 };
 
 //forcibly use new profile
-GPU3DInterface gpu3Dgl_3_2 = {
-	"OpenGL 3.2",
+GPU3DInterface gpu3Dgl_3_3 = {
+	"OpenGL 3.3",
 	OpenGLRendererCreate<true,true>,
 	OpenGLRendererDestroy
 };

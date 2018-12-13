@@ -26,7 +26,7 @@
 #include "render3D.h"
 #include "types.h"
 
-#ifndef OGLRENDER_3_2_H
+#ifndef OGLRENDER_3_3_H
 
 #if defined(_WIN32)
 	#define WIN32_LEAN_AND_MEAN
@@ -46,7 +46,7 @@
 	#define INITOGLEXT(procPtr, func)
 	#define EXTERNOGLEXT(procPtr, func)
 
-	// We're not exactly committing to OpenGL 3.2 Core Profile just yet, so redefine APPLE
+	// We're not exactly committing to OpenGL 3.3 Core Profile just yet, so redefine APPLE
 	// extensions as a temporary measure.
 	#if defined(GL_APPLE_vertex_array_object) && !defined(GL_ARB_vertex_array_object)
 		#define glGenVertexArrays(n, ids)		glGenVertexArraysAPPLE(n, ids)
@@ -180,7 +180,7 @@ EXTERNOGLEXT(PFNGLRENDERBUFFERSTORAGEEXTPROC, glRenderbufferStorageEXT)
 EXTERNOGLEXT(PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC, glRenderbufferStorageMultisampleEXT)
 EXTERNOGLEXT(PFNGLDELETERENDERBUFFERSEXTPROC, glDeleteRenderbuffersEXT)
 
-#else // OGLRENDER_3_2_H
+#else // OGLRENDER_3_3_H
 
 // Basic Functions
 EXTERNOGLEXT(PFNGLGETSTRINGIPROC, glGetStringi) // Core in v3.0
@@ -273,7 +273,7 @@ EXTERNOGLEXT(PFNGLGETACTIVEUNIFORMBLOCKIVPROC, glGetActiveUniformBlockiv) // Cor
 // TBO
 EXTERNOGLEXT(PFNGLTEXBUFFERPROC, glTexBuffer) // Core in v3.1
 
-#endif // OGLRENDER_3_2_H
+#endif // OGLRENDER_3_3_H
 
 // Define the minimum required OpenGL version for the driver to support
 #define OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_MAJOR			1
@@ -533,7 +533,7 @@ class OpenGLRenderer;
 
 extern GPU3DInterface gpu3Dgl;
 extern GPU3DInterface gpu3DglOld;
-extern GPU3DInterface gpu3Dgl_3_2;
+extern GPU3DInterface gpu3Dgl_3_3;
 
 extern const GLenum RenderDrawList[3];
 extern CACHE_ALIGN const GLfloat divide5bitBy31_LUT[32];
@@ -562,13 +562,13 @@ bool BEGINGL();
 void ENDGL();
 
 // These functions need to be assigned by ports that support using an
-// OpenGL 3.2 Core Profile context. The OGLRender_3_2.cpp file includes
+// OpenGL 3.3 Core Profile context. The OGLRender_3_3.cpp file includes
 // the corresponding functions to assign to each function pointer.
 //
 // If any of these functions are unassigned, then one of the legacy OpenGL
 // renderers will be used instead.
-extern void (*OGLLoadEntryPoints_3_2_Func)();
-extern void (*OGLCreateRenderer_3_2_Func)(OpenGLRenderer **rendererPtr);
+extern void (*OGLLoadEntryPoints_3_3_Func)();
+extern void (*OGLCreateRenderer_3_3_Func)(OpenGLRenderer **rendererPtr);
 
 bool IsVersionSupported(unsigned int checkVersionMajor, unsigned int checkVersionMinor, unsigned int checkVersionRevision);
 

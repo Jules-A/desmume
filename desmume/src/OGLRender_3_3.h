@@ -17,8 +17,8 @@
 	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef OGLRENDER_3_2_H
-#define OGLRENDER_3_2_H
+#ifndef OGLRENDER_3_3_H
+#define OGLRENDER_3_3_H
 
 #if defined(_WIN32)
 	#define WIN32_LEAN_AND_MEAN
@@ -50,16 +50,16 @@
 #endif
 
 // Check minimum OpenGL header version
-#if !defined(GL_VERSION_3_2)
-	#error OpenGL requires v3.2 headers or later.
+#if !defined(GL_VERSION_3_3)
+	#error OpenGL requires v3.3 headers or later.
 #endif
 
 #include "OGLRender.h"
 
-void OGLLoadEntryPoints_3_2();
-void OGLCreateRenderer_3_2(OpenGLRenderer **rendererPtr);
+void OGLLoadEntryPoints_3_3();
+void OGLCreateRenderer_3_3(OpenGLRenderer **rendererPtr);
 
-class OpenGLRenderer_3_2 : public OpenGLRenderer_2_1
+class OpenGLRenderer_3_3 : public OpenGLRenderer_2_1
 {
 protected:
 	virtual Render3DError InitExtensions();
@@ -105,7 +105,7 @@ protected:
 	virtual Render3DError SetFramebufferSize(size_t w, size_t h);
 	
 public:
-	~OpenGLRenderer_3_2();
+	~OpenGLRenderer_3_3();
 	
 	virtual Render3DError RenderPowerOff();
 };
