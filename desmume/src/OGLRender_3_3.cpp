@@ -17,7 +17,7 @@
 	along with the this software.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "OGLRender_3_2.h"
+#include "OGLRender_3_3.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -67,7 +67,7 @@ OGLEXT(PFNGLGETACTIVEUNIFORMBLOCKIVPROC, glGetActiveUniformBlockiv) // Core in v
 // TBO
 OGLEXT(PFNGLTEXBUFFERPROC, glTexBuffer) // Core in v3.1
 
-void OGLLoadEntryPoints_3_2()
+void OGLLoadEntryPoints_3_3()
 {
 	// Basic Functions
 	INITOGLEXT(PFNGLGETSTRINGIPROC, glGetStringi)
@@ -840,16 +840,16 @@ void main()\n\
 }\n\
 "};
 
-void OGLCreateRenderer_3_2(OpenGLRenderer **rendererPtr)
+void OGLCreateRenderer_3_3(OpenGLRenderer **rendererPtr)
 {
 	if (IsVersionSupported(3, 2, 0))
 	{
-		*rendererPtr = new OpenGLRenderer_3_2;
+		*rendererPtr = new OpenGLRenderer_3_3;
 		(*rendererPtr)->SetVersion(3, 2, 0);
 	}
 }
 
-OpenGLRenderer_3_2::~OpenGLRenderer_3_2()
+OpenGLRenderer_3_3::~OpenGLRenderer_3_3()
 {
 	glFinish();
 	
@@ -861,7 +861,7 @@ OpenGLRenderer_3_2::~OpenGLRenderer_3_2()
 	this->DestroyMultisampledFBO();
 }
 
-Render3DError OpenGLRenderer_3_2::InitExtensions()
+Render3DError OpenGLRenderer_3_3::InitExtensions()
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	Render3DError error = OGLERROR_NOERR;
@@ -1023,7 +1023,7 @@ Render3DError OpenGLRenderer_3_2::InitExtensions()
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::CreateFBOs()
+Render3DError OpenGLRenderer_3_3::CreateFBOs()
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -1166,7 +1166,7 @@ Render3DError OpenGLRenderer_3_2::CreateFBOs()
 	return OGLERROR_NOERR;
 }
 
-void OpenGLRenderer_3_2::DestroyFBOs()
+void OpenGLRenderer_3_3::DestroyFBOs()
 {
 	if (!this->isFBOSupported)
 	{
@@ -1195,7 +1195,7 @@ void OpenGLRenderer_3_2::DestroyFBOs()
 	this->isFBOSupported = false;
 }
 
-Render3DError OpenGLRenderer_3_2::CreateMultisampledFBO(GLsizei numSamples)
+Render3DError OpenGLRenderer_3_3::CreateMultisampledFBO(GLsizei numSamples)
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -1259,7 +1259,7 @@ Render3DError OpenGLRenderer_3_2::CreateMultisampledFBO(GLsizei numSamples)
 	return OGLERROR_NOERR;
 }
 
-void OpenGLRenderer_3_2::DestroyMultisampledFBO()
+void OpenGLRenderer_3_3::DestroyMultisampledFBO()
 {
 	if (!this->isMultisampledFBOSupported)
 	{
@@ -1281,7 +1281,7 @@ void OpenGLRenderer_3_2::DestroyMultisampledFBO()
 	this->isMultisampledFBOSupported = false;
 }
 
-void OpenGLRenderer_3_2::ResizeMultisampledFBOs(GLsizei numSamples)
+void OpenGLRenderer_3_3::ResizeMultisampledFBOs(GLsizei numSamples)
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	GLsizei w = this->_framebufferWidth;
@@ -1320,7 +1320,7 @@ void OpenGLRenderer_3_2::ResizeMultisampledFBOs(GLsizei numSamples)
 	glRenderbufferStorageMultisample(GL_RENDERBUFFER, numSamples, GL_DEPTH24_STENCIL8, w, h);
 }
 
-Render3DError OpenGLRenderer_3_2::CreateVAOs()
+Render3DError OpenGLRenderer_3_3::CreateVAOs()
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -1354,7 +1354,7 @@ Render3DError OpenGLRenderer_3_2::CreateVAOs()
 	return OGLERROR_NOERR;
 }
 
-void OpenGLRenderer_3_2::DestroyVAOs()
+void OpenGLRenderer_3_3::DestroyVAOs()
 {
 	if (!this->isVAOSupported)
 	{
@@ -1370,7 +1370,7 @@ void OpenGLRenderer_3_2::DestroyVAOs()
 	this->isVAOSupported = false;
 }
 
-Render3DError OpenGLRenderer_3_2::CreateGeometryPrograms()
+Render3DError OpenGLRenderer_3_3::CreateGeometryPrograms()
 {
 	Render3DError error = OGLERROR_NOERR;
 	OGLRenderRef &OGLRef = *this->ref;
@@ -1487,7 +1487,7 @@ Render3DError OpenGLRenderer_3_2::CreateGeometryPrograms()
 	return error;
 }
 
-void OpenGLRenderer_3_2::DestroyGeometryPrograms()
+void OpenGLRenderer_3_3::DestroyGeometryPrograms()
 {
 	if (!this->isShaderSupported)
 	{
@@ -1524,7 +1524,7 @@ void OpenGLRenderer_3_2::DestroyGeometryPrograms()
 	OGLRef.vertexGeometryShaderID = 0;
 }
 
-Render3DError OpenGLRenderer_3_2::CreateGeometryZeroDstAlphaProgram(const char *vtxShaderCString, const char *fragShaderCString)
+Render3DError OpenGLRenderer_3_3::CreateGeometryZeroDstAlphaProgram(const char *vtxShaderCString, const char *fragShaderCString)
 {
 	Render3DError error = OGLERROR_NOERR;
 	OGLRenderRef &OGLRef = *this->ref;
@@ -1575,7 +1575,7 @@ Render3DError OpenGLRenderer_3_2::CreateGeometryZeroDstAlphaProgram(const char *
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::CreateMSGeometryZeroDstAlphaProgram(const char *vtxShaderCString, const char *fragShaderCString)
+Render3DError OpenGLRenderer_3_3::CreateMSGeometryZeroDstAlphaProgram(const char *vtxShaderCString, const char *fragShaderCString)
 {
 	Render3DError error = OGLERROR_NOERR;
 	OGLRenderRef &OGLRef = *this->ref;
@@ -1629,7 +1629,7 @@ Render3DError OpenGLRenderer_3_2::CreateMSGeometryZeroDstAlphaProgram(const char
 	return OGLERROR_NOERR;
 }
 
-void OpenGLRenderer_3_2::DestroyMSGeometryZeroDstAlphaProgram()
+void OpenGLRenderer_3_3::DestroyMSGeometryZeroDstAlphaProgram()
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -1649,7 +1649,7 @@ void OpenGLRenderer_3_2::DestroyMSGeometryZeroDstAlphaProgram()
 	OGLRef.fragShaderMSGeometryZeroDstAlphaID = 0;
 }
 
-Render3DError OpenGLRenderer_3_2::CreateEdgeMarkProgram(const char *vtxShaderCString, const char *fragShaderCString)
+Render3DError OpenGLRenderer_3_3::CreateEdgeMarkProgram(const char *vtxShaderCString, const char *fragShaderCString)
 {
 	Render3DError error = OGLERROR_NOERR;
 	OGLRenderRef &OGLRef = *this->ref;
@@ -1708,7 +1708,7 @@ Render3DError OpenGLRenderer_3_2::CreateEdgeMarkProgram(const char *vtxShaderCSt
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::CreateFogProgram(const char *vtxShaderCString, const char *fragShaderCString)
+Render3DError OpenGLRenderer_3_3::CreateFogProgram(const char *vtxShaderCString, const char *fragShaderCString)
 {
 	Render3DError error = OGLERROR_NOERR;
 	OGLRenderRef &OGLRef = *this->ref;
@@ -1767,7 +1767,7 @@ Render3DError OpenGLRenderer_3_2::CreateFogProgram(const char *vtxShaderCString,
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::CreateFramebufferOutput6665Program(const char *vtxShaderCString, const char *fragShaderCString)
+Render3DError OpenGLRenderer_3_3::CreateFramebufferOutput6665Program(const char *vtxShaderCString, const char *fragShaderCString)
 {
 	Render3DError error = OGLERROR_NOERR;
 	OGLRenderRef &OGLRef = *this->ref;
@@ -1821,7 +1821,7 @@ Render3DError OpenGLRenderer_3_2::CreateFramebufferOutput6665Program(const char 
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::CreateFramebufferOutput8888Program(const char *vtxShaderCString, const char *fragShaderCString)
+Render3DError OpenGLRenderer_3_3::CreateFramebufferOutput8888Program(const char *vtxShaderCString, const char *fragShaderCString)
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	OGLRef.programFramebufferRGBA8888OutputID = 0;
@@ -1831,7 +1831,7 @@ Render3DError OpenGLRenderer_3_2::CreateFramebufferOutput8888Program(const char 
 	return OGLERROR_NOERR;
 }
 
-void OpenGLRenderer_3_2::GetExtensionSet(std::set<std::string> *oglExtensionSet)
+void OpenGLRenderer_3_3::GetExtensionSet(std::set<std::string> *oglExtensionSet)
 {
 	GLint extensionCount = 0;
 	
@@ -1843,19 +1843,19 @@ void OpenGLRenderer_3_2::GetExtensionSet(std::set<std::string> *oglExtensionSet)
 	}
 }
 
-Render3DError OpenGLRenderer_3_2::EnableVertexAttributes()
+Render3DError OpenGLRenderer_3_3::EnableVertexAttributes()
 {
 	glBindVertexArray(this->ref->vaoGeometryStatesID);
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::DisableVertexAttributes()
+Render3DError OpenGLRenderer_3_3::DisableVertexAttributes()
 {
 	glBindVertexArray(0);
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::ZeroDstAlphaPass(const POLYLIST *polyList, const INDEXLIST *indexList, bool enableAlphaBlending, size_t indexOffset, POLYGON_ATTR lastPolyAttr)
+Render3DError OpenGLRenderer_3_3::ZeroDstAlphaPass(const POLYLIST *polyList, const INDEXLIST *indexList, bool enableAlphaBlending, size_t indexOffset, POLYGON_ATTR lastPolyAttr)
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -1935,7 +1935,7 @@ Render3DError OpenGLRenderer_3_2::ZeroDstAlphaPass(const POLYLIST *polyList, con
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::DownsampleFBO()
+Render3DError OpenGLRenderer_3_3::DownsampleFBO()
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -1974,7 +1974,7 @@ Render3DError OpenGLRenderer_3_2::DownsampleFBO()
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::ReadBackPixels()
+Render3DError OpenGLRenderer_3_3::ReadBackPixels()
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -2055,7 +2055,7 @@ Render3DError OpenGLRenderer_3_2::ReadBackPixels()
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::BeginRender(const GFX3D &engine)
+Render3DError OpenGLRenderer_3_3::BeginRender(const GFX3D &engine)
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -2210,7 +2210,7 @@ Render3DError OpenGLRenderer_3_2::BeginRender(const GFX3D &engine)
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::RenderEdgeMarking(const u16 *colorTable, const bool useAntialias)
+Render3DError OpenGLRenderer_3_3::RenderEdgeMarking(const u16 *colorTable, const bool useAntialias)
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -2267,7 +2267,7 @@ Render3DError OpenGLRenderer_3_2::RenderEdgeMarking(const u16 *colorTable, const
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::RenderFog(const u8 *densityTable, const u32 color, const u32 offset, const u8 shift, const bool alphaOnly)
+Render3DError OpenGLRenderer_3_3::RenderFog(const u8 *densityTable, const u32 color, const u32 offset, const u8 shift, const bool alphaOnly)
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -2295,25 +2295,25 @@ Render3DError OpenGLRenderer_3_2::RenderFog(const u8 *densityTable, const u32 co
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::CreateToonTable()
+Render3DError OpenGLRenderer_3_3::CreateToonTable()
 {
 	// Do nothing. The toon table is updated in the render states UBO.
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::DestroyToonTable()
+Render3DError OpenGLRenderer_3_3::DestroyToonTable()
 {
 	// Do nothing. The toon table is updated in the render states UBO.
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::UpdateToonTable(const u16 *toonTableBuffer)
+Render3DError OpenGLRenderer_3_3::UpdateToonTable(const u16 *toonTableBuffer)
 {
 	// Do nothing. The toon table is updated in the render states UBO.
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::ClearUsingImage(const u16 *__restrict colorBuffer, const u32 *__restrict depthBuffer, const u8 *__restrict fogBuffer, const u8 *__restrict polyIDBuffer)
+Render3DError OpenGLRenderer_3_3::ClearUsingImage(const u16 *__restrict colorBuffer, const u32 *__restrict depthBuffer, const u8 *__restrict fogBuffer, const u8 *__restrict polyIDBuffer)
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -2380,7 +2380,7 @@ Render3DError OpenGLRenderer_3_2::ClearUsingImage(const u16 *__restrict colorBuf
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::ClearUsingValues(const FragmentColor &clearColor6665, const FragmentAttributes &clearAttributes)
+Render3DError OpenGLRenderer_3_3::ClearUsingValues(const FragmentColor &clearColor6665, const FragmentAttributes &clearAttributes)
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	OGLRef.selectedRenderingFBO = (this->_enableMultisampledRendering) ? OGLRef.fboMSIntermediateRenderID : OGLRef.fboRenderID;
@@ -2409,13 +2409,13 @@ Render3DError OpenGLRenderer_3_2::ClearUsingValues(const FragmentColor &clearCol
 	return OGLERROR_NOERR;
 }
 
-void OpenGLRenderer_3_2::SetPolygonIndex(const size_t index)
+void OpenGLRenderer_3_3::SetPolygonIndex(const size_t index)
 {
 	this->_currentPolyIndex = index;
 	glUniform1i(this->ref->uniformPolyStateIndex[this->_geometryProgramFlags.value], index);
 }
 
-Render3DError OpenGLRenderer_3_2::SetupPolygon(const POLY &thePoly, bool treatAsTranslucent, bool willChangeStencilBuffer)
+Render3DError OpenGLRenderer_3_3::SetupPolygon(const POLY &thePoly, bool treatAsTranslucent, bool willChangeStencilBuffer)
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -2503,7 +2503,7 @@ Render3DError OpenGLRenderer_3_2::SetupPolygon(const POLY &thePoly, bool treatAs
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::SetupTexture(const POLY &thePoly, size_t polyRenderIndex)
+Render3DError OpenGLRenderer_3_3::SetupTexture(const POLY &thePoly, size_t polyRenderIndex)
 {
 	OpenGLTexture *theTexture = (OpenGLTexture *)this->_textureList[polyRenderIndex];
 		
@@ -2536,7 +2536,7 @@ Render3DError OpenGLRenderer_3_2::SetupTexture(const POLY &thePoly, size_t polyR
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::SetFramebufferSize(size_t w, size_t h)
+Render3DError OpenGLRenderer_3_3::SetFramebufferSize(size_t w, size_t h)
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
@@ -2624,7 +2624,7 @@ Render3DError OpenGLRenderer_3_2::SetFramebufferSize(size_t w, size_t h)
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_3_2::RenderPowerOff()
+Render3DError OpenGLRenderer_3_3::RenderPowerOff()
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	static const GLfloat oglColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
