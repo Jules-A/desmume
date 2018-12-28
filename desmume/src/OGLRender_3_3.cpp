@@ -147,7 +147,7 @@ void main() \n\
 	\n\
 	vtxPosition = inPosition; \n\
 	vtxTexCoord = texScaleMtx * inTexCoord0; \n\
-	vtxColor = vec4(inColor * 4.0, polyAlpha); \n\
+	vtxColor = vec4(inColor / 63.0, polyAlpha); \n\
 	\n\
 	gl_Position = vtxPosition; \n\
 } \n\
@@ -206,18 +206,6 @@ void main()\n\
 #endif\n\
 #if ENABLE_FOG\n\
 	vec4 newFogAttributes = vec4(0.0, 0.0, 0.0, 0.0);\n\
-#endif\n\
-	\n\
-#if USE_NDS_DEPTH_CALCULATION || ENABLE_FOG\n\
-	float depthOffset = (polyDepthOffsetMode == 0) ? 0.0 : ((polyDepthOffsetMode == 1) ? -DEPTH_EQUALS_TEST_TOLERANCE : DEPTH_EQUALS_TEST_TOLERANCE);\n\
-	\n\
-	#if ENABLE_W_DEPTH\n\
-	float newFragDepthValue = clamp( ( (vtxPosition.w * 4096.0) + depthOffset ) / 16777215.0, 0.0, 1.0 );\n\
-	#else\n\
-	float vertW = (vtxPosition.w == 0.0) ? 0.00000001 : vtxPosition.w;\n\
-	// hack: when using z-depth, drop some LSBs so that the overworld map in Dragon Quest IV shows up correctly\n\
-	float newFragDepthValue = clamp( ( (floor(((vtxPosition.z/vertW) * 0.5 + 0.5) * 4194303.0) * 4.0) + depthOffset ) / 16777215.0, 0.0, 1.0 );\n\
-	#endif\n\
 #endif\n\
 	\n\
 	if ((polyMode != 3u) || polyDrawShadow)\n\
@@ -299,6 +287,16 @@ void main()\n\
 	outFogAttributes = newFogAttributes;\n\
 #endif\n\
 #if USE_NDS_DEPTH_CALCULATION || ENABLE_FOG\n\
+	float depthOffset = (polyDepthOffsetMode == 0) ? 0.0 : ((polyDepthOffsetMode == 1) ? -DEPTH_EQUALS_TEST_TOLERANCE : DEPTH_EQUALS_TEST_TOLERANCE);\n\
+	\n\
+	#if ENABLE_W_DEPTH\n\
+	float newFragDepthValue = clamp( ( (vtxPosition.w * 4096.0) + depthOffset ) / 16777215.0, 0.0, 1.0 );\n\
+	#else\n\
+	float vertW = (vtxPosition.w == 0.0) ? 0.00000001 : vtxPosition.w;\n\
+	// hack: when using z-depth, drop some LSBs so that the overworld map in Dragon Quest IV shows up correctly\n\
+	float newFragDepthValue = clamp( ( (floor(((vtxPosition.z/vertW) * 0.5 + 0.5) * 4194303.0) * 4.0) + depthOffset ) / 16777215.0, 0.0, 1.0 );\n\
+	#endif\n\
+	\n\
 	gl_FragDepth = newFragDepthValue;\n\
 #endif\n\
 }\n\
@@ -761,7 +759,7 @@ void main()\n\
 
 void OGLCreateRenderer_3_3(OpenGLRenderer **rendererPtr)
 {
-	if (IsVersionSupported(3, 3, 0))
+	if (IsOpenGLDriverVersionSupported(3, 3, 0))
 	{
 		*rendererPtr = new OpenGLRenderer_3_3;
 		(*rendererPtr)->SetVersion(3, 3, 0);
@@ -796,10 +794,7 @@ Render3DError OpenGLRenderer_3_3::InitExtensions()
 
 	this->_deviceInfo.isEdgeMarkSupported = true;
 	this->_deviceInfo.isFogSupported = true;
-
-	// Initialize OpenGL
-	this->InitTables();
-
+	
 	glGenTextures(1, &OGLRef.texFinalColorID);
 	glActiveTexture(GL_TEXTURE0 + OGLTextureUnitID_FinalColor);
 	glBindTexture(GL_TEXTURE_2D, OGLRef.texFinalColorID);
@@ -1259,8 +1254,8 @@ Render3DError OpenGLRenderer_3_3::CreateVAOs()
 	glEnableVertexAttribArray(OGLVertexAttributeID_Color);
 	glVertexAttribPointer(OGLVertexAttributeID_Position, 4, GL_FLOAT, GL_FALSE, sizeof(VERT), (const GLvoid *)offsetof(VERT, coord));
 	glVertexAttribPointer(OGLVertexAttributeID_TexCoord0, 2, GL_FLOAT, GL_FALSE, sizeof(VERT), (const GLvoid *)offsetof(VERT, texcoord));
-	glVertexAttribPointer(OGLVertexAttributeID_Color, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VERT), (const GLvoid *)offsetof(VERT, color));
-
+	glVertexAttribPointer(OGLVertexAttributeID_Color, 3, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(VERT), (const GLvoid *)offsetof(VERT, color));
+	
 	glBindVertexArray(0);
 
 	glBindVertexArray(OGLRef.vaoPostprocessStatesID);
@@ -2590,16 +2585,18 @@ Render3DError OpenGLRenderer_3_3::SetupTexture(const POLY &thePoly, size_t polyR
 
 Render3DError OpenGLRenderer_3_3::SetFramebufferSize(size_t w, size_t h)
 {
+	Render3DError error = OGLERROR_NOERR;
 	OGLRenderRef &OGLRef = *this->ref;
 
 	if (w < GPU_FRAMEBUFFER_NATIVE_WIDTH || h < GPU_FRAMEBUFFER_NATIVE_HEIGHT)
 	{
-		return OGLERROR_NOERR;
+		return error;
 	}
 
 	if (!BEGINGL())
 	{
-		return OGLERROR_BEGINGL_FAILED;
+		error = OGLERROR_BEGINGL_FAILED;
+		return error;
 	}
 
 	glFinish();
@@ -2656,8 +2653,8 @@ Render3DError OpenGLRenderer_3_3::SetFramebufferSize(size_t w, size_t h)
 
 	if (this->isSampleShadingSupported)
 	{
-		Render3DError error = this->CreateMSGeometryZeroDstAlphaProgram(MSGeometryZeroDstAlphaPixelMaskVtxShader_150, MSGeometryZeroDstAlphaPixelMaskFragShader_150);
-		this->willUsePerSampleZeroDstPass = (error == OGLERROR_NOERR);
+		Render3DError shaderError = this->CreateMSGeometryZeroDstAlphaProgram(MSGeometryZeroDstAlphaPixelMaskVtxShader_150, MSGeometryZeroDstAlphaPixelMaskFragShader_150);
+		this->willUsePerSampleZeroDstPass = (shaderError == OGLERROR_NOERR);
 	}
 
 	// Call ResizeMultisampledFBOs() after _framebufferWidth and _framebufferHeight are set
@@ -2667,13 +2664,17 @@ Render3DError OpenGLRenderer_3_3::SetFramebufferSize(size_t w, size_t h)
 
 	if (oglrender_framebufferDidResizeCallback != NULL)
 	{
-		oglrender_framebufferDidResizeCallback(w, h);
+		bool clientResizeSuccess = oglrender_framebufferDidResizeCallback(this->isFBOSupported, w, h);
+		if (!clientResizeSuccess)
+		{
+			error = OGLERROR_CLIENT_RESIZE_ERROR;
+		}
 	}
 
 	glFinish();
 	ENDGL();
-
-	return OGLERROR_NOERR;
+	
+	return error;
 }
 
 Render3DError OpenGLRenderer_3_3::RenderPowerOff()

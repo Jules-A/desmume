@@ -54,7 +54,6 @@ typedef struct
 static OGLVersion _OGLDriverVersion = {0, 0, 0};
 
 // Lookup Tables
-static CACHE_ALIGN GLfloat material_8bit_to_float[256] = {0};
 CACHE_ALIGN const GLfloat divide5bitBy31_LUT[32]	= {0.0,             0.0322580645161, 0.0645161290323, 0.0967741935484,
 													   0.1290322580645, 0.1612903225806, 0.1935483870968, 0.2258064516129,
 													   0.2580645161290, 0.2903225806452, 0.3225806451613, 0.3548387096774,
@@ -292,7 +291,7 @@ void main() \n\
 	\n\
 	vtxPosition = inPosition; \n\
 	vtxTexCoord = texScaleMtx * inTexCoord0; \n\
-	vtxColor = vec4(inColor * 4.0, polyAlpha); \n\
+	vtxColor = vec4(inColor / 63.0, polyAlpha); \n\
 	\n\
 	gl_Position = vtxPosition; \n\
 } \n\
@@ -330,18 +329,6 @@ void main()\n\
 #endif\n\
 #if ENABLE_FOG\n\
 	vec4 newFogAttributes = vec4(0.0, 0.0, 0.0, 0.0);\n\
-#endif\n\
-	\n\
-#if USE_NDS_DEPTH_CALCULATION || ENABLE_FOG\n\
-	float depthOffset = (polyDepthOffsetMode == 0) ? 0.0 : ((polyDepthOffsetMode == 1) ? -DEPTH_EQUALS_TEST_TOLERANCE : DEPTH_EQUALS_TEST_TOLERANCE);\n\
-	\n\
-	#if ENABLE_W_DEPTH\n\
-	float newFragDepthValue = clamp( ( (vtxPosition.w * 4096.0) + depthOffset ) / 16777215.0, 0.0, 1.0 );\n\
-	#else\n\
-	float vertW = (vtxPosition.w == 0.0) ? 0.00000001 : vtxPosition.w;\n\
-	// hack: when using z-depth, drop some LSBs so that the overworld map in Dragon Quest IV shows up correctly\n\
-	float newFragDepthValue = clamp( ( (floor(((vtxPosition.z/vertW) * 0.5 + 0.5) * 4194303.0) * 4.0) + depthOffset ) / 16777215.0, 0.0, 1.0 );\n\
-	#endif\n\
 #endif\n\
 	\n\
 	if ((polyMode != 3) || polyDrawShadow)\n\
@@ -416,6 +403,16 @@ void main()\n\
 	gl_FragData[2] = newFogAttributes;\n\
 #endif\n\
 #if USE_NDS_DEPTH_CALCULATION || ENABLE_FOG\n\
+	float depthOffset = (polyDepthOffsetMode == 0) ? 0.0 : ((polyDepthOffsetMode == 1) ? -DEPTH_EQUALS_TEST_TOLERANCE : DEPTH_EQUALS_TEST_TOLERANCE);\n\
+	\n\
+	#if ENABLE_W_DEPTH\n\
+	float newFragDepthValue = clamp( ( (vtxPosition.w * 4096.0) + depthOffset ) / 16777215.0, 0.0, 1.0 );\n\
+	#else\n\
+	float vertW = (vtxPosition.w == 0.0) ? 0.00000001 : vtxPosition.w;\n\
+	// hack: when using z-depth, drop some LSBs so that the overworld map in Dragon Quest IV shows up correctly\n\
+	float newFragDepthValue = clamp( ( (floor(((vtxPosition.z/vertW) * 0.5 + 0.5) * 4194303.0) * 4.0) + depthOffset ) / 16777215.0, 0.0, 1.0 );\n\
+	#endif\n\
+	\n\
 	gl_FragDepth = newFragDepthValue;\n\
 #endif\n\
 }\n\
@@ -794,7 +791,7 @@ void main()\n\
 }\n\
 "};
 
-bool IsVersionSupported(unsigned int checkVersionMajor, unsigned int checkVersionMinor, unsigned int checkVersionRevision)
+bool IsOpenGLDriverVersionSupported(unsigned int checkVersionMajor, unsigned int checkVersionMinor, unsigned int checkVersionRevision)
 {
 	bool result = false;
 	
@@ -1050,7 +1047,7 @@ static Render3D* OpenGLRendererCreate()
 	// Check the driver's OpenGL version
 	OGLGetDriverVersion(oglVersionString, &_OGLDriverVersion.major, &_OGLDriverVersion.minor, &_OGLDriverVersion.revision);
 	
-	if (!IsVersionSupported(OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_MAJOR, OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_MINOR, OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_REVISION))
+	if (!IsOpenGLDriverVersionSupported(OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_MAJOR, OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_MINOR, OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_REVISION))
 	{
 		INFO("OpenGL: Driver does not support OpenGL v%u.%u.%u or later. Disabling 3D renderer.\n[ Driver Info -\n    Version: %s\n    Vendor: %s\n    Renderer: %s ]\n",
 			 OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_MAJOR, OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_MINOR, OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_REVISION,
@@ -1085,17 +1082,17 @@ static Render3D* OpenGLRendererCreate()
 	{
 		OGLLoadEntryPoints_Legacy();
 		
-		if (IsVersionSupported(2, 1, 0))
+		if (IsOpenGLDriverVersionSupported(2, 1, 0))
 		{
 			newRenderer = new OpenGLRenderer_2_1;
 			newRenderer->SetVersion(2, 1, 0);
 		}
-		else if (IsVersionSupported(2, 0, 0))
+		else if (IsOpenGLDriverVersionSupported(2, 0, 0))
 		{
 			newRenderer = new OpenGLRenderer_2_0;
 			newRenderer->SetVersion(2, 0, 0);
 		}
-		else if (IsVersionSupported(1, 2, 0))
+		else if (IsOpenGLDriverVersionSupported(1, 2, 0))
 		{
 			newRenderer = new OpenGLRenderer_1_2;
 			newRenderer->SetVersion(1, 2, 0);
@@ -1120,12 +1117,12 @@ static Render3D* OpenGLRendererCreate()
 			INFO("OpenGL: This driver does not support the minimum feature set required to run this renderer. Disabling 3D renderer.\n[ Driver Info -\n    Version: %s\n    Vendor: %s\n    Renderer: %s ]\n",
 				 oglVersionString, oglVendorString, oglRendererString);
 		}
-		else if (IsVersionSupported(1, 5, 0) && (error == OGLERROR_VBO_UNSUPPORTED))
+		else if (newRenderer->IsVersionSupported(1, 5, 0) && (error == OGLERROR_VBO_UNSUPPORTED))
 		{
 			INFO("OpenGL: VBOs are not available, even though this version of OpenGL requires them. Disabling 3D renderer.\n[ Driver Info -\n    Version: %s\n    Vendor: %s\n    Renderer: %s ]\n",
 				 oglVersionString, oglVendorString, oglRendererString);
 		}
-		else if ( IsVersionSupported(2, 0, 0) &&
+		else if ( newRenderer->IsVersionSupported(2, 0, 0) &&
 			(error == OGLERROR_SHADER_CREATE_ERROR ||
 			 error == OGLERROR_VERTEX_SHADER_PROGRAM_LOAD_ERROR ||
 			 error == OGLERROR_FRAGMENT_SHADER_PROGRAM_LOAD_ERROR) )
@@ -1133,12 +1130,12 @@ static Render3D* OpenGLRendererCreate()
 			INFO("OpenGL: Shaders are not working, even though they should be on this version of OpenGL. Disabling 3D renderer.\n[ Driver Info -\n    Version: %s\n    Vendor: %s\n    Renderer: %s ]\n",
 				 oglVersionString, oglVendorString, oglRendererString);
 		}
-		else if (IsVersionSupported(2, 1, 0) && (error == OGLERROR_PBO_UNSUPPORTED))
+		else if (newRenderer->IsVersionSupported(2, 1, 0) && (error == OGLERROR_PBO_UNSUPPORTED))
 		{
 			INFO("OpenGL: PBOs are not available, even though this version of OpenGL requires them. Disabling 3D renderer.\n[ Driver Info -\n    Version: %s\n    Vendor: %s\n    Renderer: %s ]\n",
 				 oglVersionString, oglVendorString, oglRendererString);
 		}
-		else if (IsVersionSupported(3, 0, 0) && (error == OGLERROR_FBO_CREATE_ERROR) && (OGLLoadEntryPoints_3_3_Func != NULL))
+		else if (newRenderer->IsVersionSupported(3, 0, 0) && (error == OGLERROR_FBO_CREATE_ERROR) && (OGLLoadEntryPoints_3_3_Func != NULL))
 		{
 			INFO("OpenGL: FBOs are not available, even though this version of OpenGL requires them. Disabling 3D renderer.\n[ Driver Info -\n    Version: %s\n    Vendor: %s\n    Renderer: %s ]\n",
 				 oglVersionString, oglVendorString, oglRendererString);
@@ -1410,6 +1407,20 @@ void OpenGLRenderer::SetVersion(unsigned int major, unsigned int minor, unsigned
 	this->versionMajor = major;
 	this->versionMinor = minor;
 	this->versionRevision = revision;
+}
+
+bool OpenGLRenderer::IsVersionSupported(unsigned int checkVersionMajor, unsigned int checkVersionMinor, unsigned int checkVersionRevision) const
+{
+	bool result = false;
+	
+	if ( (this->versionMajor > checkVersionMajor) ||
+		 (this->versionMajor >= checkVersionMajor && this->versionMinor > checkVersionMinor) ||
+		 (this->versionMajor >= checkVersionMajor && this->versionMinor >= checkVersionMinor && this->versionRevision >= checkVersionRevision) )
+	{
+		result = true;
+	}
+	
+	return result;
 }
 
 Render3DError OpenGLRenderer::_FlushFramebufferFlipAndConvertOnCPU(const FragmentColor *__restrict srcFramebuffer,
@@ -1894,7 +1905,7 @@ size_t OpenGLRenderer::DrawPolygonsForIndexRange(const POLYLIST *polyList, const
 				polyPrimitive != GL_LINE_STRIP &&
 				oglPrimitiveType[nextPoly.vtxFormat] != GL_LINE_LOOP &&
 				oglPrimitiveType[nextPoly.vtxFormat] != GL_LINE_STRIP &&
-				this->_isPolyFrontFacing[i] != this->_isPolyFrontFacing[i+1])
+				this->_isPolyFrontFacing[i] == this->_isPolyFrontFacing[i+1])
 			{
 				continue;
 			}
@@ -2428,9 +2439,6 @@ Render3DError OpenGLRenderer_1_2::InitExtensions()
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyOGL);
 	this->_deviceInfo.maxAnisotropy = maxAnisotropyOGL;
 	
-	// Initialize OpenGL
-	this->InitTables();
-	
 	this->isShaderSupported	= this->IsExtensionPresent(&oglExtensionSet, "GL_ARB_shader_objects") &&
 							  this->IsExtensionPresent(&oglExtensionSet, "GL_ARB_vertex_shader") &&
 							  this->IsExtensionPresent(&oglExtensionSet, "GL_ARB_fragment_shader") &&
@@ -2497,7 +2505,7 @@ Render3DError OpenGLRenderer_1_2::InitExtensions()
 	{
 		INFO("OpenGL: Shaders are unsupported. Disabling shaders and using fixed-function pipeline. Some emulation features will be disabled.\n");
 		
-		if (IsVersionSupported(2, 0, 0))
+		if (this->IsVersionSupported(2, 0, 0))
 		{
 			return error;
 		}
@@ -2511,7 +2519,7 @@ Render3DError OpenGLRenderer_1_2::InitExtensions()
 	else
 	{
 		error = OGLERROR_VBO_UNSUPPORTED;
-		if (IsVersionSupported(1, 5, 0))
+		if (this->IsVersionSupported(1, 5, 0))
 		{
 			return error;
 		}
@@ -2527,7 +2535,7 @@ Render3DError OpenGLRenderer_1_2::InitExtensions()
 	else
 	{
 		error = OGLERROR_PBO_UNSUPPORTED;
-		if (IsVersionSupported(2, 1, 0))
+		if (this->IsVersionSupported(2, 1, 0))
 		{
 			return error;
 		}
@@ -2751,7 +2759,7 @@ Render3DError OpenGLRenderer_1_2::CreateVAOs()
 	glEnableVertexAttribArray(OGLVertexAttributeID_Color);
 	glVertexAttribPointer(OGLVertexAttributeID_Position, 4, GL_FLOAT, GL_FALSE, sizeof(VERT), (const GLvoid *)offsetof(VERT, coord));
 	glVertexAttribPointer(OGLVertexAttributeID_TexCoord0, 2, GL_FLOAT, GL_FALSE, sizeof(VERT), (const GLvoid *)offsetof(VERT, texcoord));
-	glVertexAttribPointer(OGLVertexAttributeID_Color, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VERT), (const GLvoid *)offsetof(VERT, color));
+	glVertexAttribPointer(OGLVertexAttributeID_Color, 3, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(VERT), (const GLvoid *)offsetof(VERT, color));
 	
 	glBindVertexArray(0);
 	
@@ -3738,21 +3746,6 @@ Render3DError OpenGLRenderer_1_2::InitFinalRenderStates(const std::set<std::stri
 	return OGLERROR_NOERR;
 }
 
-Render3DError OpenGLRenderer_1_2::InitTables()
-{
-	static bool needTableInit = true;
-	
-	if (needTableInit)
-	{
-		for (size_t i = 0; i < 256; i++)
-			material_8bit_to_float[i] = (GLfloat)(i * 4) / 255.0f;
-		
-		needTableInit = false;
-	}
-	
-	return OGLERROR_NOERR;
-}
-
 Render3DError OpenGLRenderer_1_2::InitPostprocessingPrograms(const char *edgeMarkVtxShaderCString,
 															 const char *edgeMarkFragShaderCString,
 															 const char *framebufferOutputVtxShaderCString,
@@ -3917,7 +3910,7 @@ Render3DError OpenGLRenderer_1_2::EnableVertexAttributes()
 			glEnableVertexAttribArray(OGLVertexAttributeID_Color);
 			glVertexAttribPointer(OGLVertexAttributeID_Position, 4, GL_FLOAT, GL_FALSE, sizeof(VERT), OGLRef.vtxPtrPosition);
 			glVertexAttribPointer(OGLVertexAttributeID_TexCoord0, 2, GL_FLOAT, GL_FALSE, sizeof(VERT), OGLRef.vtxPtrTexCoord);
-			glVertexAttribPointer(OGLVertexAttributeID_Color, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VERT), OGLRef.vtxPtrColor);
+			glVertexAttribPointer(OGLVertexAttributeID_Color, 3, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(VERT), OGLRef.vtxPtrColor);
 		}
 		else
 		{
@@ -4342,9 +4335,9 @@ Render3DError OpenGLRenderer_1_2::BeginRender(const GFX3D &engine)
 				// Consolidate the vertex color and the poly alpha to our internal color buffer
 				// so that OpenGL can use it.
 				const VERT *vertForAlpha = &engine.vertList[vertIndex];
-				OGLRef.color4fBuffer[colorIndex+0] = material_8bit_to_float[vertForAlpha->color[0]];
-				OGLRef.color4fBuffer[colorIndex+1] = material_8bit_to_float[vertForAlpha->color[1]];
-				OGLRef.color4fBuffer[colorIndex+2] = material_8bit_to_float[vertForAlpha->color[2]];
+				OGLRef.color4fBuffer[colorIndex+0] = divide6bitBy63_LUT[vertForAlpha->color[0]];
+				OGLRef.color4fBuffer[colorIndex+1] = divide6bitBy63_LUT[vertForAlpha->color[1]];
+				OGLRef.color4fBuffer[colorIndex+2] = divide6bitBy63_LUT[vertForAlpha->color[2]];
 				OGLRef.color4fBuffer[colorIndex+3] = thePolyAlpha;
 				
 				// While we're looping through our vertices, add each vertex index to a
@@ -5354,16 +5347,18 @@ Render3DError OpenGLRenderer_1_2::RenderFlush(bool willFlushBuffer32, bool willF
 
 Render3DError OpenGLRenderer_1_2::SetFramebufferSize(size_t w, size_t h)
 {
+	Render3DError error = OGLERROR_NOERR;
 	OGLRenderRef &OGLRef = *this->ref;
 	
 	if (w < GPU_FRAMEBUFFER_NATIVE_WIDTH || h < GPU_FRAMEBUFFER_NATIVE_HEIGHT)
 	{
-		return OGLERROR_NOERR;
+		return error;
 	}
 	
 	if (!BEGINGL())
 	{
-		return OGLERROR_BEGINGL_FAILED;
+		error = OGLERROR_BEGINGL_FAILED;
+		return error;
 	}
 	
 	glFinish();
@@ -5433,25 +5428,32 @@ Render3DError OpenGLRenderer_1_2::SetFramebufferSize(size_t w, size_t h)
 		free_aligned(oldFramebufferColor);
 	}
 	
-	// Recreate shaders that use the framebuffer size.
-	glUseProgram(0);
-	this->DestroyEdgeMarkProgram();
-	this->DestroyFramebufferOutput6665Program();
-	this->DestroyFramebufferOutput8888Program();
-	
-	this->CreateEdgeMarkProgram(EdgeMarkVtxShader_100, EdgeMarkFragShader_100);
-	this->CreateFramebufferOutput6665Program(FramebufferOutputVtxShader_100, FramebufferOutputRGBA6665FragShader_100);
-	this->CreateFramebufferOutput8888Program(FramebufferOutputVtxShader_100, FramebufferOutputRGBA8888FragShader_100);
+	if (this->isShaderSupported)
+	{
+		// Recreate shaders that use the framebuffer size.
+		glUseProgram(0);
+		this->DestroyEdgeMarkProgram();
+		this->DestroyFramebufferOutput6665Program();
+		this->DestroyFramebufferOutput8888Program();
+		
+		this->CreateEdgeMarkProgram(EdgeMarkVtxShader_100, EdgeMarkFragShader_100);
+		this->CreateFramebufferOutput6665Program(FramebufferOutputVtxShader_100, FramebufferOutputRGBA6665FragShader_100);
+		this->CreateFramebufferOutput8888Program(FramebufferOutputVtxShader_100, FramebufferOutputRGBA8888FragShader_100);
+	}
 	
 	if (oglrender_framebufferDidResizeCallback != NULL)
 	{
-		oglrender_framebufferDidResizeCallback(w, h);
+		bool clientResizeSuccess = oglrender_framebufferDidResizeCallback(this->isFBOSupported, w, h);
+		if (!clientResizeSuccess)
+		{
+			error = OGLERROR_CLIENT_RESIZE_ERROR;
+		}
 	}
 	
 	glFinish();
 	ENDGL();
 	
-	return OGLERROR_NOERR;
+	return error;
 }
 
 Render3DError OpenGLRenderer_2_0::InitFinalRenderStates(const std::set<std::string> *oglExtensionSet)
@@ -5492,7 +5494,7 @@ Render3DError OpenGLRenderer_2_0::EnableVertexAttributes()
 		glEnableVertexAttribArray(OGLVertexAttributeID_Color);
 		glVertexAttribPointer(OGLVertexAttributeID_Position, 4, GL_FLOAT, GL_FALSE, sizeof(VERT), OGLRef.vtxPtrPosition);
 		glVertexAttribPointer(OGLVertexAttributeID_TexCoord0, 2, GL_FLOAT, GL_FALSE, sizeof(VERT), OGLRef.vtxPtrTexCoord);
-		glVertexAttribPointer(OGLVertexAttributeID_Color, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(VERT), OGLRef.vtxPtrColor);
+		glVertexAttribPointer(OGLVertexAttributeID_Color, 3, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(VERT), OGLRef.vtxPtrColor);
 	}
 	
 	return OGLERROR_NOERR;
