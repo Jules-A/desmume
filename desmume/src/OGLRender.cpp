@@ -104,7 +104,7 @@ void ENDGL()
 bool (*oglrender_init)() = NULL;
 bool (*oglrender_beginOpenGL)() = NULL;
 void (*oglrender_endOpenGL)() = NULL;
-bool (*oglrender_framebufferDidResizeCallback)(size_t w, size_t h) = NULL;
+bool (*oglrender_framebufferDidResizeCallback)(const bool isFBOSupported, size_t w, size_t h) = NULL;
 void (*OGLLoadEntryPoints_3_3_Func)() = NULL;
 void (*OGLCreateRenderer_3_3_Func)(OpenGLRenderer **rendererPtr) = NULL;
 
