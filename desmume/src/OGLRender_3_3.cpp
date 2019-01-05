@@ -1912,11 +1912,7 @@ Render3DError OpenGLRenderer_3_3::ZeroDstAlphaPass(const POLYLIST *polyList, con
 	// All other pixels (alpha != 0) -- Set stencil buffer to 1
 
 	this->DisableVertexAttributes();
-
-	glDepthMask(GL_FALSE);
-	glStencilMask(0x40);
-	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-
+	
 	const bool isRunningMSAA = this->isMultisampledFBOSupported && (OGLRef.selectedRenderingFBO == OGLRef.fboMSIntermediateRenderID);
 	const bool isRunningMSAAWithPerSampleShading = isRunningMSAA && this->willUsePerSampleZeroDstPass; // Doing per-sample shading should be a little more accurate than not doing so.
 
@@ -1939,6 +1935,9 @@ Render3DError OpenGLRenderer_3_3::ZeroDstAlphaPass(const POLYLIST *polyList, con
 	glDisable(GL_CULL_FACE);
 
 	glStencilFunc(GL_ALWAYS, 0x40, 0x40);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+	glStencilMask(0x40);
+	glDepthMask(GL_FALSE);
 	glDrawBuffer(GL_NONE);
 
 	glBindBuffer(GL_ARRAY_BUFFER, OGLRef.vboPostprocessVtxID);
@@ -2278,8 +2277,8 @@ Render3DError OpenGLRenderer_3_3::RenderEdgeMarking(const u16 *colorTable, const
 
 	glBindBuffer(GL_ARRAY_BUFFER, OGLRef.vboPostprocessVtxID);
 	glBindVertexArray(OGLRef.vaoPostprocessStatesID);
-
-	if (this->_emulateSpecialZeroAlphaBlending)
+	
+	if (this->_needsZeroDstAlphaPass && this->_emulateSpecialZeroAlphaBlending)
 	{
 		// Pass 1: Determine the pixels with zero alpha
 		glDrawBuffer(GL_NONE);
@@ -2288,9 +2287,7 @@ Render3DError OpenGLRenderer_3_3::RenderEdgeMarking(const u16 *colorTable, const
 		glStencilFunc(GL_ALWAYS, 0x40, 0x40);
 		glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 		glStencilMask(0x40);
-		glDepthMask(GL_FALSE);
-		glClearBufferfi(GL_DEPTH_STENCIL, 0, 0.0f, 0);
-
+		
 		glUseProgram(OGLRef.programGeometryZeroDstAlphaID);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 		
@@ -2311,7 +2308,9 @@ Render3DError OpenGLRenderer_3_3::RenderEdgeMarking(const u16 *colorTable, const
 	{
 		glUseProgram(OGLRef.programEdgeMarkID);
 		glDrawBuffer(GL_COLOR_ATTACHMENT0);
+		glEnable(GL_BLEND);
 		glDisable(GL_STENCIL_TEST);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	}
 
