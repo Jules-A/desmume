@@ -136,6 +136,9 @@
     <Filter Include="libretro-common\include\encodings">
       <UniqueIdentifier>{c3763fed-6836-4ede-be25-d6d35bbad418}</UniqueIdentifier>
     </Filter>
+    <Filter Include="utils\KHR">
+      <UniqueIdentifier>{485f2e60-5c7c-4128-9216-4768425fdda2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\addons\slot2_expMemory.cpp">
@@ -1627,6 +1630,12 @@
     </ClInclude>
     <ClInclude Include="display.h">
       <Filter>frontend\Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\utils\KHR\khrplatform.h">
+      <Filter>utils\KHR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\utils\glcorearb.h">
+      <Filter>utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

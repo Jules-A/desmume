@@ -94,7 +94,7 @@
       <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <Link>
-      <AdditionalOptions>/CGTHREADS6 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/CGTHREADS:6 %(AdditionalOptions)</AdditionalOptions>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
     </Link>
@@ -468,6 +468,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release Fastbuild|x64'">true</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="..\..\utils\glcorearb.h" />
+    <ClInclude Include="..\..\utils\KHR\khrplatform.h" />
     <ClInclude Include="..\..\version.h" />
     <ClInclude Include="..\..\armcpu.h" />
     <ClInclude Include="..\..\arm_jit.h" />
