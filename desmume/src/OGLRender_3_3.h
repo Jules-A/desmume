@@ -25,7 +25,7 @@
 	#include <windows.h>
 	#include <GL/gl.h>
 	#include <GL/glext.h>
-	#include "utils/glcorearb.h"
+	#include <utils/glcorearb.h>
 
 	#define OGLEXT(procPtr, func)		procPtr func = NULL;
 	#define INITOGLEXT(procPtr, func)	func = (procPtr)wglGetProcAddress(#func);
