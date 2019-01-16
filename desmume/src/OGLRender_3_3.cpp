@@ -2445,7 +2445,8 @@ Render3DError OpenGLRenderer_3_3::ClearUsingValues(const FragmentColor &clearCol
 		const GLfloat oglFogAttr[4] = { (GLfloat)clearAttributes.isFogged, 0.0f, 0.0f, 1.0f };
 		glClearBufferfv(GL_COLOR, 2, oglFogAttr); // texGFogAttrID
 	}
-
+	
+	glDrawBuffers(3, GeometryDrawBuffersList[this->_geometryProgramFlags.DrawBuffersMode]);
 	this->_needsZeroDstAlphaPass = (clearColor6665.a == 0);
 
 	return OGLERROR_NOERR;
