@@ -782,13 +782,13 @@ void OGLCreateRenderer_3_3(OpenGLRenderer **rendererPtr)
 	}
 }
 
-OpenGLRenderer_3_2::OpenGLRenderer_3_3()
+OpenGLRenderer_3_3::OpenGLRenderer_3_3()
 {
 	_is64kUBOSupported = false;
 	_syncBufferSetup = NULL;
 }
 
-OpenGLRenderer_3_2::~OpenGLRenderer_3_3()
+OpenGLRenderer_3_3::~OpenGLRenderer_3_3()
 {
 	glFinish();
 

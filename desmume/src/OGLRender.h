@@ -279,7 +279,7 @@ EXTERNOGLEXT(PFNGLFENCESYNCPROC, glFenceSync) // Core in v3.2
 EXTERNOGLEXT(PFNGLWAITSYNCPROC, glWaitSync) // Core in v3.2
 EXTERNOGLEXT(PFNGLDELETESYNCPROC, glDeleteSync) // Core in v3.2
 
-#endif // OGLRENDER_3_2_H
+#endif // OGLRENDER_3_3_H
 
 // Define the minimum required OpenGL version for the driver to support
 #define OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_MAJOR			1
