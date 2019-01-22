@@ -274,7 +274,12 @@ EXTERNOGLEXT(PFNGLGETACTIVEUNIFORMBLOCKIVPROC, glGetActiveUniformBlockiv) // Cor
 // TBO
 EXTERNOGLEXT(PFNGLTEXBUFFERPROC, glTexBuffer) // Core in v3.1
 
-#endif // OGLRENDER_3_3_H
+// Sync Objects
+EXTERNOGLEXT(PFNGLFENCESYNCPROC, glFenceSync) // Core in v3.2
+EXTERNOGLEXT(PFNGLWAITSYNCPROC, glWaitSync) // Core in v3.2
+EXTERNOGLEXT(PFNGLDELETESYNCPROC, glDeleteSync) // Core in v3.2
+
+#endif // OGLRENDER_3_2_H
 
 // Define the minimum required OpenGL version for the driver to support
 #define OGLRENDER_MINIMUM_DRIVER_VERSION_REQUIRED_MAJOR			1
@@ -304,7 +309,8 @@ enum OGLTextureUnitID
 
 enum OGLBindingPointID
 {
-	OGLBindingPointID_RenderStates = 0
+	OGLBindingPointID_RenderStates = 0,
+	OGLBindingPointID_PolyStates = 1
 };
 
 enum OGLErrorCode
@@ -483,6 +489,7 @@ struct OGLRenderRef
 	
 	// UBO / TBO
 	GLuint uboRenderStatesID;
+	GLuint uboPolyStatesID;
 	GLuint tboPolyStatesID;
 	GLuint texPolyStatesID;
 	
@@ -564,7 +571,7 @@ struct OGLRenderRef
 	
 	// Client-side Buffers
 	GLfloat *color4fBuffer;
-	GLushort *vertIndexBuffer;
+	CACHE_ALIGN GLushort vertIndexBuffer[OGLRENDER_VERT_INDEX_BUFFER_COUNT];
 	CACHE_ALIGN GLushort workingCIColorBuffer[GPU_FRAMEBUFFER_NATIVE_WIDTH * GPU_FRAMEBUFFER_NATIVE_HEIGHT];
 	CACHE_ALIGN GLuint workingCIDepthStencilBuffer[2][GPU_FRAMEBUFFER_NATIVE_WIDTH * GPU_FRAMEBUFFER_NATIVE_HEIGHT];
 	CACHE_ALIGN GLuint workingCIFogAttributesBuffer[2][GPU_FRAMEBUFFER_NATIVE_WIDTH * GPU_FRAMEBUFFER_NATIVE_HEIGHT];
@@ -704,10 +711,13 @@ protected:
 	bool _enableMultisampledRendering;
 	int _selectedMultisampleSize;
 	bool _isPolyFrontFacing[POLYLIST_SIZE];
+	bool _willForceTextureSampleClampS[POLYLIST_SIZE];
+	bool _willForceTextureSampleClampT[POLYLIST_SIZE];
 	size_t _clearImageIndex;
 	
 	Render3DError FlushFramebuffer(const FragmentColor *__restrict srcFramebuffer, FragmentColor *__restrict dstFramebufferMain, u16 *__restrict dstFramebuffer16);
 	OpenGLTexture* GetLoadedTextureFromPolygon(const POLY &thePoly, bool enableTexturing);
+	
 	template<OGLPolyDrawMode DRAWMODE> size_t DrawPolygonsForIndexRange(const POLYLIST *polyList, const INDEXLIST *indexList, size_t firstIndex, size_t lastIndex, size_t &indexOffset, POLYGON_ATTR &lastPolyAttr);
 	template<OGLPolyDrawMode DRAWMODE> Render3DError DrawAlphaTexturePolygon(const GLenum polyPrimitive,
 																			 const GLsizei vertIndexCount,
