@@ -148,9 +148,6 @@
 
 #ifdef _MSC_VER
 	#define _CDECL_ __cdecl
-#ifdef __AVX__
-	#define ENABLE_AVX
-#endif
 #else
 	#define _CDECL_
 #endif
