@@ -2263,7 +2263,7 @@ void OpenGLRenderer_3_3::_ResolveWorkingBackFacing()
 	glBindFramebuffer(GL_FRAMEBUFFER, OGLRef.fboMSIntermediateRenderID);
 }
 
-void OpenGLRenderer_3_2::_ResolveGeometry()
+void OpenGLRenderer_3_3::_ResolveGeometry()
 {
 	OGLRenderRef &OGLRef = *this->ref;
 	
