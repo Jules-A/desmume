@@ -158,7 +158,6 @@ OGLEXT(PFNGLACTIVETEXTUREARBPROC, glActiveTextureARB)
 #endif
 
 // Blending
-OGLEXT(PFNGLBLENDEQUATIONPROC, glBlendEquation) // Core in v1.2
 OGLEXT(PFNGLBLENDFUNCSEPARATEPROC, glBlendFuncSeparate) // Core in v1.4
 OGLEXT(PFNGLBLENDEQUATIONSEPARATEPROC, glBlendEquationSeparate) // Core in v2.0
 
@@ -240,7 +239,6 @@ static void OGLLoadEntryPoints_Legacy()
 	#endif
 
 	// Blending
-	INITOGLEXT(PFNGLBLENDEQUATIONPROC, glBlendEquation) // Core in v1.2
 	INITOGLEXT(PFNGLBLENDFUNCSEPARATEPROC, glBlendFuncSeparate) // Core in v1.4
 	INITOGLEXT(PFNGLBLENDEQUATIONSEPARATEPROC, glBlendEquationSeparate) // Core in v2.0
 
