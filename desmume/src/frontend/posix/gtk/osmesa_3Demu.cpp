@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <GL/osmesa.h>
 #include "../OGLRender.h"
-#include "../OGLRender_3_2.h"
+#include "../OGLRender_3_3.h"
 
 #include "osmesa_3Demu.h"
 
@@ -44,20 +44,20 @@ void deinit_osmesa_3Demu (void)
 bool init_osmesa_3Demu(void)
 {
 #if (((OSMESA_MAJOR_VERSION * 100) + OSMESA_MINOR_VERSION) >= 1102) && defined(OSMESA_CONTEXT_MAJOR_VERSION)
-	static const int attributes_3_2_core_profile[] = {
+	static const int attributes_3_3_core_profile[] = {
 		OSMESA_FORMAT, OSMESA_RGBA,
 		OSMESA_DEPTH_BITS, 24,
 		OSMESA_STENCIL_BITS, 8,
 		OSMESA_ACCUM_BITS, 0,
 		OSMESA_PROFILE, OSMESA_CORE_PROFILE,
 		OSMESA_CONTEXT_MAJOR_VERSION, 3,
-		OSMESA_CONTEXT_MINOR_VERSION, 2,
+		OSMESA_CONTEXT_MINOR_VERSION, 3,
 		0 };
 	
-	ctx = OSMesaCreateContextAttribs(attributes_3_2_core_profile, NULL);
+	ctx = OSMesaCreateContextAttribs(attributes_3_3_core_profile, NULL);
 	if (ctx == NULL)
 	{
-		printf("OSMesa: Could not create a 3.2 Core Profile context. Will attempt to create a 2.1 compatibility context...\n");
+		printf("OSMesa: Could not create a 3.3 Core Profile context. Will attempt to create a 2.1 compatibility context...\n");
 		
 		static const int attributes_2_1[] = {
 			OSMESA_FORMAT, OSMESA_RGBA,

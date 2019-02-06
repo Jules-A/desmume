@@ -74,7 +74,7 @@
 	#include <GL/gl.h>
 	#include <GL/glu.h>
 	#include "OGLRender.h"
-	#include "OGLRender_3_2.h"
+	#include "OGLRender_3_3.h"
 #endif
 
 #if defined(HAVE_GL_GLX)
@@ -3378,9 +3378,9 @@ common_gtk_main( class configured_features *my_config)
             gtk_toggle_action_set_active((GtkToggleAction *)action, FALSE);
     }
 
-#if defined(HAVE_OPENGL) && defined(OGLRENDER_3_2_H)
-    OGLLoadEntryPoints_3_2_Func = OGLLoadEntryPoints_3_2;
-    OGLCreateRenderer_3_2_Func = OGLCreateRenderer_3_2;
+#if defined(HAVE_OPENGL) && defined(OGLRENDER_3_3_H)
+    OGLLoadEntryPoints_3_3_Func = OGLLoadEntryPoints_3_3;
+    OGLCreateRenderer_3_3_Func = OGLCreateRenderer_3_3;
 #endif
 
     //Set the 3D emulation to use

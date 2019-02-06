@@ -120,12 +120,12 @@ bool init_glx_3Demu(void)
     OGLEXT(PFNGLXCREATECONTEXTATTRIBSARBPROC, glXCreateContextAttribsARB);
     INITOGLEXT(PFNGLXCREATECONTEXTATTRIBSARBPROC, glXCreateContextAttribsARB);
 
-    // Try to get a 3.2 core profile context
+    // Try to get a 3.3 core profile context
     if (glXCreateContextAttribsARB) {
         const int ctx_attr[] = {
             GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
             GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
-            GLX_CONTEXT_MINOR_VERSION_ARB, 2,
+            GLX_CONTEXT_MINOR_VERSION_ARB, 3,
             None
         };
         // This silly dance is needed because if Xorg can't acquire the context
