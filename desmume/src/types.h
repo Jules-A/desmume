@@ -88,7 +88,7 @@
 
 #ifdef _MSC_VER 
 	#include <compat/msvc.h>
-
+	#define ENABLE_AVX
 #else
 	#define WINAPI
 #endif
