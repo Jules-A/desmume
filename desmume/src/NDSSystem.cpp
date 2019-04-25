@@ -1,6 +1,6 @@
 /*
 	Copyright (C) 2006 yopyop
-	Copyright (C) 2008-2018 DeSmuME team
+	Copyright (C) 2008-2019 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -99,6 +99,8 @@ int lagframecounter;
 int LagFrameFlag;
 int lastLag;
 int TotalLagFrames;
+u8 MicSampleSelection = 0;
+std::vector< std::vector<u8> > micSamples;
 
 TSCalInfo TSCal;
 
@@ -2422,9 +2424,6 @@ bool NDS_FakeBoot()
 			return false;
 		}
 	}
-
-	//bios (or firmware) sets this default, which is generally not important for retail games but some homebrews are depending on
-	_MMU_write08<ARMCPU_ARM9>(REG_WRAMCNT,3);
 	
 	//firmware loads the game card arm9 and arm7 programs as specified in rom header
 	{
@@ -2615,6 +2614,7 @@ void NDS_Reset()
 	nds_arm7_timer = 0;
 	LidClosed = FALSE;
 	countLid = 0;
+	MicSampleSelection = 0;
 
 	MMU_Reset();
 	SetupMMU(nds.Is_DebugConsole(),nds.Is_DSI());
@@ -2643,40 +2643,59 @@ void NDS_Reset()
 	}
 	
 	bool didLoadExtFirmware = false;
+	bool willBootFromFirmware = false;
+	bool bootResult = false;
+	
 	extFirmwareObj = new CFIRMWARE();
 	
+	// First, load the firmware from an external file if requested.
 	if (CommonSettings.UseExtFirmware && NDS_ARM7.BIOS_loaded && NDS_ARM9.BIOS_loaded)
 	{
 		didLoadExtFirmware = extFirmwareObj->load(CommonSettings.ExtFirmwarePath);
+		
+		// We will allow a proper firmware boot, if:
+		// 1. we have the ARM7 and ARM9 bioses (its doubtful that our HLE bios implement the necessary functions)
+		// 2. firmware is available
+		// 3. user has requested booting from firmware
+		willBootFromFirmware = (CommonSettings.BootFromFirmware && didLoadExtFirmware);
+	}
+	
+	// If we're doing a fake boot, then we must ensure that this value gets set before any firmware settings are changed.
+	if (!willBootFromFirmware)
+	{
+		//bios (or firmware) sets this default, which is generally not important for retail games but some homebrews are depending on
+		_MMU_write08<ARMCPU_ARM9>(REG_WRAMCNT,3);
 	}
 	
 	if (didLoadExtFirmware)
 	{
 		// what is the purpose of unpack?
 		extFirmwareObj->unpack();
-		
-		std::string extFWUserSettingsString = CFIRMWARE::GetUserSettingsFilePath(CommonSettings.ExtFirmwarePath);
-		strncpy(CommonSettings.ExtFirmwareUserSettingsPath, extFWUserSettingsString.c_str(), MAX_PATH);
-		
-		//partially clobber the loaded firmware with the user settings from DFC
-		if (CommonSettings.UseExtFirmwareSettings)
-		{
-			extFirmwareObj->loadSettings(CommonSettings.ExtFirmwareUserSettingsPath);
-		}
 	}
 	else
 	{
-		NDS_InitFirmwareWithConfig(CommonSettings.fwConfig);
+		// If we didn't successfully load firmware from somewhere, then we need to use
+		// our own internal firmware as a stand-in.
+		NDS_InitDefaultFirmware(&MMU.fw.data);
 	}
 	
-	//we will allow a proper firmware boot, if:
-	//1. we have the ARM7 and ARM9 bioses (its doubtful that our HLE bios implement the necessary functions)
-	//2. firmware is available
-	//3. user has requested booting from firmware
-	bool canBootFromFirmware = (CommonSettings.BootFromFirmware && didLoadExtFirmware);
-	bool bootResult = false;
+	// Load the firmware settings.
+	if (CommonSettings.UseExtFirmwareSettings && didLoadExtFirmware)
+	{
+		// Partially clobber the loaded firmware with user settings from the .dfc file.
+		std::string extFWUserSettingsString = CFIRMWARE::GetUserSettingsFilePath(CommonSettings.ExtFirmwarePath);
+		strncpy(CommonSettings.ExtFirmwareUserSettingsPath, extFWUserSettingsString.c_str(), MAX_PATH);
+		
+		extFirmwareObj->loadSettings(CommonSettings.ExtFirmwareUserSettingsPath);
+	}
+	else
+	{
+		// Otherwise, just use our version of the firmware config.
+		NDS_ApplyFirmwareSettingsWithConfig(&MMU.fw.data, CommonSettings.fwConfig);
+	}
 	
-	if (canBootFromFirmware)
+	// Finally, boot the firmware.
+	if (willBootFromFirmware)
 	{
 		bootResult = NDS_LegitBoot();
 	}
@@ -2694,7 +2713,7 @@ void NDS_Reset()
 	wifiHandler->CommStart();
 
 	SPU_DeInit();
-	SPU_ReInit(!canBootFromFirmware && bootResult);
+	SPU_ReInit(!willBootFromFirmware && bootResult);
 
 	//this needs to happen last, pretty much, since it establishes the correct scheduling state based on all of the above initialization
 	initSchedule();
