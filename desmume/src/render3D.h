@@ -62,7 +62,8 @@ enum RendererID
 	RENDERID_SOFTRASTERIZER		= 1,
 	RENDERID_OPENGL_AUTO		= 1000,
 	RENDERID_OPENGL_LEGACY		= 1001,
-	RENDERID_OPENGL_3_2			= 1002
+	RENDERID_OPENGL_3_2			= 1002,
+	RENDERID_METAL				= 2000
 };
 
 enum Render3DErrorCode
@@ -184,6 +185,10 @@ protected:
 	u32 *_textureUpscaleBuffer;
 	Render3DTexture *_textureList[POLYLIST_SIZE];
 	
+	size_t _clippedPolyCount;
+	size_t _clippedPolyOpaqueCount;
+	CPoly *_clippedPolyList;
+	
 	CACHE_ALIGN u16 clearImageColor16Buffer[GPU_FRAMEBUFFER_NATIVE_WIDTH * GPU_FRAMEBUFFER_NATIVE_HEIGHT];
 	CACHE_ALIGN u32 clearImageDepthBuffer[GPU_FRAMEBUFFER_NATIVE_WIDTH * GPU_FRAMEBUFFER_NATIVE_HEIGHT];
 	CACHE_ALIGN u8 clearImageFogBuffer[GPU_FRAMEBUFFER_NATIVE_WIDTH * GPU_FRAMEBUFFER_NATIVE_HEIGHT];
@@ -193,10 +198,9 @@ protected:
 	
 	
 	virtual Render3DError BeginRender(const GFX3D &engine);
-	virtual Render3DError RenderGeometry(const GFX3D_State &renderState, const POLYLIST *polyList, const INDEXLIST *indexList);
-	virtual Render3DError RenderEdgeMarking(const u16 *colorTable, const bool useAntialias);
-	virtual Render3DError RenderFog(const u8 *densityTable, const u32 color, const u16 offset, const u8 shift, const bool alphaOnly);
-	virtual Render3DError EndRender(const u64 frameCount);
+	virtual Render3DError RenderGeometry();
+	virtual Render3DError PostprocessFramebuffer();
+	virtual Render3DError EndRender();
 	virtual Render3DError FlushFramebuffer(const FragmentColor *__restrict srcFramebuffer, FragmentColor *__restrict dstFramebufferMain, u16 *__restrict dstFramebuffer16);
 	
 	virtual Render3DError ClearUsingImage(const u16 *__restrict colorBuffer, const u32 *__restrict depthBuffer, const u8 *__restrict fogBuffer, const u8 opaquePolyID);
@@ -219,7 +223,6 @@ public:
 	size_t GetFramebufferHeight();
 	bool IsFramebufferNativeSize();
 	
-	virtual Render3DError UpdateToonTable(const u16 *toonTableBuffer);
 	virtual Render3DError ClearFramebuffer(const GFX3D_State &renderState);
 	
 	virtual Render3DError ApplyRenderingSettings(const GFX3D_State &renderState);
@@ -263,6 +266,10 @@ public:
 	
 	void SetTextureProcessingProperties();
 	Render3DTexture* GetTextureByPolygonRenderIndex(size_t polyRenderIndex) const;
+	
+	virtual ClipperMode GetPreferredPolygonClippingMode() const;
+	const CPoly& GetClippedPolyByIndex(size_t index) const;
+	size_t GetClippedPolyCount() const;
 };
 
 template <size_t SIMDBYTES>
@@ -274,9 +281,9 @@ public:
 	virtual Render3DError SetFramebufferSize(size_t w, size_t h);
 };
 
-#if defined(ENABLE_AVX2)
+#if defined(ENABLE_AVX)
 
-class Render3D_AVX2 : public Render3D_SIMD<32>
+class Render3D_AVX : public Render3D_SIMD<32>
 {
 public:
 	virtual Render3DError ClearFramebuffer(const GFX3D_State &renderState);

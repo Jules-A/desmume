@@ -1,6 +1,6 @@
 /*	
 	Copyright (C) 2006 yopyop
-	Copyright (C) 2008-2018 DeSmuME team
+	Copyright (C) 2008-2019 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -371,6 +371,11 @@ POLYLIST* polylist = NULL;
 VERT *vertLists = NULL;
 VERT *vertList = NULL;
 
+GFX3D_Clipper *_clipper = NULL;
+CPoly _clippedPolyWorkingList[POLYLIST_SIZE * 2];
+CPoly _clippedPolyUnsortedList[POLYLIST_SIZE];
+CPoly _clippedPolySortedList[POLYLIST_SIZE];
+
 size_t vertListCount[2] = {0, 0};
 int polygonListCompleted = 0;
 
@@ -502,6 +507,9 @@ void VERT::load(EMUFILE &is)
 
 void gfx3d_init()
 {
+	_clipper = new GFX3D_Clipper;
+	_clipper->SetClippedPolyBufferPtr(_clippedPolyWorkingList);
+	
 	polyAttrInProcess.value = 0;
 	currentPolyAttr.value = 0;
 	currentPolyTexParam.value = 0;
@@ -564,6 +572,8 @@ void gfx3d_deinit()
 	free_aligned(vertLists);
 	vertLists = NULL;
 	vertList = NULL;
+	
+	delete _clipper;
 }
 
 void gfx3d_reset()
@@ -594,6 +604,9 @@ void gfx3d_reset()
 	gfx3d.polylist = polylist;
 	gfx3d.vertList = vertList;
 	gfx3d.vertListCount = vertListCount[listTwiddle];
+	gfx3d.clippedPolyCount = 0;
+	gfx3d.clippedPolyOpaqueCount = 0;
+	gfx3d.clippedPolyList = _clippedPolySortedList;
 
 	polyAttrInProcess.value = 0;
 	currentPolyAttr.value = 0;
@@ -1745,9 +1758,9 @@ static BOOL gfx3d_glBoxTest(u32 v)
 	polys[5].setVertIndexes(0,4,5,1); //bottom
 
 	//setup the clipper
-	GFX3D_Clipper::TClippedPoly tempClippedPoly;
-	boxtestClipper.clippedPolys = &tempClippedPoly;
-	boxtestClipper.reset();
+	CPoly tempClippedPoly;
+	boxtestClipper.SetClippedPolyBufferPtr(&tempClippedPoly);
+	boxtestClipper.Reset();
 
 	////-----------------------------
 	////awesome hack:
@@ -1800,10 +1813,10 @@ static BOOL gfx3d_glBoxTest(u32 v)
 			&verts[thePoly.vertIndexes[3]]
 		};
 
-		boxtestClipper.clipPoly<false>(thePoly, vertTable);
+		const bool isPolyUnclipped = boxtestClipper.ClipPoly<ClipperMode_DetermineClipOnly>(0, thePoly, vertTable);
 		
 		//if any portion of this poly was retained, then the test passes.
-		if (boxtestClipper.clippedPolyCounter > 0)
+		if (isPolyUnclipped)
 		{
 			//printf("%06d PASS %d\n",gxFIFO.size, i);
 			MMU_new.gxstat.tr = 1;
@@ -2280,8 +2293,8 @@ void gfx3d_glFlush(u32 v)
 
 static bool gfx3d_ysort_compare(int num1, int num2)
 {
-	const POLY &poly1 = polylist->list[num1];
-	const POLY &poly2 = polylist->list[num2];
+	const POLY &poly1 = gfx3d.polylist->list[num1];
+	const POLY &poly2 = gfx3d.polylist->list[num2];
 	
 	//this may be verified by checking the game create menus in harvest moon island of happiness
 	//also the buttons in the knights in the nightmare frontend depend on this and the perspective division
@@ -2299,6 +2312,145 @@ static bool gfx3d_ysort_compare(int num1, int num2)
 	//this makes it a stable sort.
 	//this must be a stable sort or else advance wars DOR will flicker in the main map mode
 	return (num1 < num2);
+}
+
+template <ClipperMode CLIPPERMODE>
+void gfx3d_PerformClipping(const VERT *vtxList, const POLYLIST *polyList)
+{
+	bool isPolyUnclipped = false;
+	_clipper->Reset();
+	
+	for (size_t polyIndex = 0, clipCount = 0; polyIndex < polyList->count; polyIndex++)
+	{
+		const POLY &poly = polyList->list[polyIndex];
+		
+		const VERT *clipVerts[4] = {
+			&vtxList[poly.vertIndexes[0]],
+			&vtxList[poly.vertIndexes[1]],
+			&vtxList[poly.vertIndexes[2]],
+			(poly.type == POLYGON_TYPE_QUAD) ? &vtxList[poly.vertIndexes[3]] : NULL
+		};
+		
+		isPolyUnclipped = _clipper->ClipPoly<CLIPPERMODE>(polyIndex, poly, clipVerts);
+		
+		if (CLIPPERMODE == ClipperMode_DetermineClipOnly)
+		{
+			if (isPolyUnclipped)
+			{
+				_clippedPolyUnsortedList[polyIndex].index = _clipper->GetClippedPolyByIndex(clipCount).index;
+				_clippedPolyUnsortedList[polyIndex].poly = _clipper->GetClippedPolyByIndex(clipCount).poly;
+				clipCount++;
+			}
+		}
+		else
+		{
+			if (isPolyUnclipped)
+			{
+				_clippedPolyUnsortedList[polyIndex] = _clipper->GetClippedPolyByIndex(clipCount);
+				clipCount++;
+			}
+		}
+	}
+}
+
+void gfx3d_GenerateRenderLists(const ClipperMode clippingMode)
+{
+	switch (clippingMode)
+	{
+		case ClipperMode_Full:
+			gfx3d_PerformClipping<ClipperMode_Full>(gfx3d.vertList, gfx3d.polylist);
+			break;
+			
+		case ClipperMode_FullColorInterpolate:
+			gfx3d_PerformClipping<ClipperMode_FullColorInterpolate>(gfx3d.vertList, gfx3d.polylist);
+			break;
+			
+		case ClipperMode_DetermineClipOnly:
+			gfx3d_PerformClipping<ClipperMode_DetermineClipOnly>(gfx3d.vertList, gfx3d.polylist);
+			break;
+	}
+	
+	gfx3d.clippedPolyCount = _clipper->GetPolyCount();
+
+#ifdef _SHOW_VTX_COUNTERS
+	max_polys = max((u32)polycount, max_polys);
+	max_verts = max((u32)vertListCount[listTwiddle], max_verts);
+	osd->addFixed(180, 20, "%i/%i", polycount, vertListCount[listTwiddle]);		// current
+	osd->addFixed(180, 35, "%i/%i", max_polys, max_verts);		// max
+#endif
+	
+	//we need to sort the poly list with alpha polys last
+	//first, look for opaque polys
+	size_t ctr = 0;
+	for (size_t i = 0; i < gfx3d.clippedPolyCount; i++)
+	{
+		const CPoly &clippedPoly = _clipper->GetClippedPolyByIndex(i);
+		if (!clippedPoly.poly->isTranslucent())
+			gfx3d.indexlist.list[ctr++] = clippedPoly.index;
+	}
+	gfx3d.clippedPolyOpaqueCount = ctr;
+	
+	//then look for translucent polys
+	for (size_t i = 0; i < gfx3d.clippedPolyCount; i++)
+	{
+		const CPoly &clippedPoly = _clipper->GetClippedPolyByIndex(i);
+		if (clippedPoly.poly->isTranslucent())
+			gfx3d.indexlist.list[ctr++] = clippedPoly.index;
+	}
+	
+	//find the min and max y values for each poly.
+	//the w-division here is just an approximation to fix the shop in harvest moon island of happiness
+	//also the buttons in the knights in the nightmare frontend depend on this
+	size_t ysortCount = (gfx3d.state.sortmode) ? gfx3d.clippedPolyOpaqueCount : gfx3d.clippedPolyCount;
+	for (size_t i = 0; i < ysortCount; i++)
+	{
+		// TODO: Possible divide by zero with the w-coordinate.
+		// Is the vertex being read correctly? Is 0 a valid value for w?
+		// If both of these questions answer to yes, then how does the NDS handle a NaN?
+		// For now, simply prevent w from being zero.
+		POLY &poly = *_clipper->GetClippedPolyByIndex(i).poly;
+		float verty = gfx3d.vertList[poly.vertIndexes[0]].y;
+		float vertw = (gfx3d.vertList[poly.vertIndexes[0]].w != 0.0f) ? gfx3d.vertList[poly.vertIndexes[0]].w : 0.00000001f;
+		verty = 1.0f-(verty+vertw)/(2*vertw);
+		poly.miny = poly.maxy = verty;
+		
+		for (size_t j = 1; j < poly.type; j++)
+		{
+			verty = gfx3d.vertList[poly.vertIndexes[j]].y;
+			vertw = (gfx3d.vertList[poly.vertIndexes[j]].w != 0.0f) ? gfx3d.vertList[poly.vertIndexes[j]].w : 0.00000001f;
+			verty = 1.0f-(verty+vertw)/(2*vertw);
+			poly.miny = min(poly.miny, verty);
+			poly.maxy = max(poly.maxy, verty);
+		}
+	}
+
+	//now we have to sort the opaque polys by y-value.
+	//(test case: harvest moon island of happiness character creator UI)
+	//should this be done after clipping??
+	std::sort(gfx3d.indexlist.list, gfx3d.indexlist.list + gfx3d.clippedPolyOpaqueCount, gfx3d_ysort_compare);
+	
+	if (!gfx3d.state.sortmode)
+	{
+		//if we are autosorting translucent polys, we need to do this also
+		//TODO - this is unverified behavior. need a test case
+		std::sort(gfx3d.indexlist.list + gfx3d.clippedPolyOpaqueCount, gfx3d.indexlist.list + gfx3d.clippedPolyCount, gfx3d_ysort_compare);
+	}
+	
+	// Reorder the clipped polygon list to match our sorted index list.
+	if (clippingMode == ClipperMode_DetermineClipOnly)
+	{
+		for (size_t i = 0; i < gfx3d.clippedPolyCount; i++)
+		{
+			_clippedPolySortedList[i].poly = _clippedPolyUnsortedList[gfx3d.indexlist.list[i]].poly;
+		}
+	}
+	else
+	{
+		for (size_t i = 0; i < gfx3d.clippedPolyCount; i++)
+		{
+			_clippedPolySortedList[i] = _clippedPolyUnsortedList[gfx3d.indexlist.list[i]];
+		}
+	}
 }
 
 static void gfx3d_doFlush()
@@ -2320,75 +2472,10 @@ static void gfx3d_doFlush()
 	gfx3d.renderState = gfx3d.state;
 	
 	gfx3d.state.activeFlushCommand = gfx3d.state.pendingFlushCommand;
-
-	const size_t polycount = polylist->count;
-#ifdef _SHOW_VTX_COUNTERS
-	max_polys = max((u32)polycount, max_polys);
-	max_verts = max((u32)vertListCount[listTwiddle], max_verts);
-	osd->addFixed(180, 20, "%i/%i", polycount, vertListCount[listTwiddle]);		// current
-	osd->addFixed(180, 35, "%i/%i", max_polys, max_verts);		// max
-#endif
-
-	//find the min and max y values for each poly.
-	//TODO - this could be a small waste of time if we are manual sorting the translucent polys
-	//TODO - this _MUST_ be moved later in the pipeline, after clipping.
-	//the w-division here is just an approximation to fix the shop in harvest moon island of happiness
-	//also the buttons in the knights in the nightmare frontend depend on this
-	for (size_t i = 0; i < polycount; i++)
-	{
-		// TODO: Possible divide by zero with the w-coordinate.
-		// Is the vertex being read correctly? Is 0 a valid value for w?
-		// If both of these questions answer to yes, then how does the NDS handle a NaN?
-		// For now, simply prevent w from being zero.
-		POLY &poly = polylist->list[i];
-		float verty = vertList[poly.vertIndexes[0]].y;
-		float vertw = (vertList[poly.vertIndexes[0]].w != 0.0f) ? vertList[poly.vertIndexes[0]].w : 0.00000001f;
-		verty = 1.0f-(verty+vertw)/(2*vertw);
-		poly.miny = poly.maxy = verty;
-
-		for (size_t j = 1; j < poly.type; j++)
-		{
-			verty = vertList[poly.vertIndexes[j]].y;
-			vertw = (vertList[poly.vertIndexes[j]].w != 0.0f) ? vertList[poly.vertIndexes[j]].w : 0.00000001f;
-			verty = 1.0f-(verty+vertw)/(2*vertw);
-			poly.miny = min(poly.miny, verty);
-			poly.maxy = max(poly.maxy, verty);
-		}
-
-	}
-
-	//we need to sort the poly list with alpha polys last
-	//first, look for opaque polys
-	size_t ctr = 0;
-	for (size_t i = 0; i < polycount; i++)
-	{
-		const POLY &poly = polylist->list[i];
-		if (!poly.isTranslucent())
-			gfx3d.indexlist.list[ctr++] = i;
-	}
 	
-	polylist->opaqueCount = ctr;
+	const ClipperMode clippingMode = CurrentRenderer->GetPreferredPolygonClippingMode();
+	gfx3d_GenerateRenderLists(clippingMode);
 	
-	//then look for translucent polys
-	for (size_t i = 0; i < polycount; i++)
-	{
-		const POLY &poly = polylist->list[i];
-		if (poly.isTranslucent())
-			gfx3d.indexlist.list[ctr++] = i;
-	}
-
-	//now we have to sort the opaque polys by y-value.
-	//(test case: harvest moon island of happiness character creator UI)
-	//should this be done after clipping??
-	std::sort(gfx3d.indexlist.list, gfx3d.indexlist.list + polylist->opaqueCount, gfx3d_ysort_compare);
-	
-	if (!gfx3d.state.sortmode)
-	{
-		//if we are autosorting translucent polys, we need to do this also
-		//TODO - this is unverified behavior. need a test case
-		std::sort(gfx3d.indexlist.list + polylist->opaqueCount, gfx3d.indexlist.list + polycount, gfx3d_ysort_compare);
-	}
-
 	//switch to the new lists
 	twiddleLists();
 
@@ -2470,7 +2557,16 @@ void gfx3d_VBlankEndSignal(bool skipFrame)
 	drawPending = FALSE;
 	
 	GPU->GetEventHandler()->DidApplyRender3DSettingsBegin();
+	
+	const ClipperMode oldClippingMode = CurrentRenderer->GetPreferredPolygonClippingMode();
 	GPU->Change3DRendererIfNeeded();
+	const ClipperMode newClippingMode = CurrentRenderer->GetPreferredPolygonClippingMode();
+	
+	if (oldClippingMode != newClippingMode)
+	{
+		gfx3d_GenerateRenderLists(newClippingMode);
+	}
+	
 	CurrentRenderer->ApplyRenderingSettings(gfx3d.renderState);
 	GPU->GetEventHandler()->DidApplyRender3DSettingsEnd();
 	
@@ -3037,8 +3133,8 @@ static T interpolate(const float ratio, const T& x0, const T& x1)
 }
 
 //http://www.cs.berkeley.edu/~ug/slide/pipeline/assignments/as6/discussion.shtml
-template<int COORD, int WHICH>
-static FORCEINLINE VERT clipPoint(bool hirez, const VERT *inside, const VERT *outside)
+template <ClipperMode CLIPPERMODE, int COORD, int WHICH>
+static FORCEINLINE VERT clipPoint(const VERT *inside, const VERT *outside)
 {
 	VERT ret;
 	const float coord_inside = inside->coord[COORD];
@@ -3050,16 +3146,23 @@ static FORCEINLINE VERT clipPoint(bool hirez, const VERT *inside, const VERT *ou
 #define INTERP(X) ret . X = interpolate(t, inside-> X ,outside-> X )
 	
 	INTERP(coord[0]); INTERP(coord[1]); INTERP(coord[2]); INTERP(coord[3]);
-	INTERP(texcoord[0]); INTERP(texcoord[1]);
 	
-	if (hirez)
+	switch (CLIPPERMODE)
 	{
-		INTERP(fcolor[0]); INTERP(fcolor[1]); INTERP(fcolor[2]);
-	}
-	else
-	{
-		INTERP(color[0]); INTERP(color[1]); INTERP(color[2]);
-		ret.color_to_float();
+		case ClipperMode_Full:
+			INTERP(texcoord[0]); INTERP(texcoord[1]);
+			INTERP(color[0]); INTERP(color[1]); INTERP(color[2]);
+			ret.color_to_float();
+			break;
+			
+		case ClipperMode_FullColorInterpolate:
+			INTERP(texcoord[0]); INTERP(texcoord[1]);
+			INTERP(fcolor[0]); INTERP(fcolor[1]); INTERP(fcolor[2]);
+			break;
+			
+		case ClipperMode_DetermineClipOnly:
+			// Do nothing.
+			break;
 	}
 
 	//this seems like a prudent measure to make sure that math doesnt make a point pop back out
@@ -3073,10 +3176,10 @@ static FORCEINLINE VERT clipPoint(bool hirez, const VERT *inside, const VERT *ou
 }
 
 #define MAX_SCRATCH_CLIP_VERTS (4*6 + 40)
-static VERT scratchClipVerts [MAX_SCRATCH_CLIP_VERTS];
-static int numScratchClipVerts = 0;
+static VERT scratchClipVerts[MAX_SCRATCH_CLIP_VERTS];
+static size_t numScratchClipVerts = 0;
 
-template <int COORD, int WHICH, class NEXT>
+template <ClipperMode CLIPPERMODE, int COORD, int WHICH, class NEXT>
 class ClipperPlane
 {
 public:
@@ -3089,20 +3192,20 @@ public:
 		m_next.init(verts);
 	}
 
-	void clipVert(bool hirez, const VERT *vert)
+	void clipVert(const VERT *vert)
 	{
 		if (m_prevVert)
-			this->clipSegmentVsPlane(hirez, m_prevVert, vert);
+			this->clipSegmentVsPlane(m_prevVert, vert);
 		else
 			m_firstVert = (VERT *)vert;
 		m_prevVert = (VERT *)vert;
 	}
 
 	// closes the loop and returns the number of clipped output verts
-	int finish(bool hirez)
+	int finish()
 	{
-		this->clipVert(hirez, m_firstVert);
-		return m_next.finish(hirez);
+		this->clipVert(m_firstVert);
+		return m_next.finish();
 	}
 
 private:
@@ -3110,7 +3213,7 @@ private:
 	VERT* m_firstVert;
 	NEXT& m_next;
 	
-	FORCEINLINE void clipSegmentVsPlane(bool hirez, const VERT *vert0, const VERT *vert1)
+	FORCEINLINE void clipSegmentVsPlane(const VERT *vert0, const VERT *vert1)
 	{
 		const float *vert0coord = vert0->coord;
 		const float *vert1coord = vert1->coord;
@@ -3133,7 +3236,7 @@ private:
 		if (!out0 && !out1)
 		{
 			CLIPLOG(" both inside\n");
-			m_next.clipVert(hirez, vert1);
+			m_next.clipVert(vert1);
 		}
 
 		//exiting volume: insert the clipped point
@@ -3141,8 +3244,8 @@ private:
 		{
 			CLIPLOG(" exiting\n");
 			assert((u32)numScratchClipVerts < MAX_SCRATCH_CLIP_VERTS);
-			scratchClipVerts[numScratchClipVerts] = clipPoint<COORD, WHICH>(hirez, vert0, vert1);
-			m_next.clipVert(hirez, &scratchClipVerts[numScratchClipVerts++]);
+			scratchClipVerts[numScratchClipVerts] = clipPoint<CLIPPERMODE, COORD, WHICH>(vert0, vert1);
+			m_next.clipVert(&scratchClipVerts[numScratchClipVerts++]);
 		}
 
 		//entering volume: insert clipped point and the next (interior) point
@@ -3150,9 +3253,9 @@ private:
 		{
 			CLIPLOG(" entering\n");
 			assert((u32)numScratchClipVerts < MAX_SCRATCH_CLIP_VERTS);
-			scratchClipVerts[numScratchClipVerts] = clipPoint<COORD, WHICH>(hirez, vert1, vert0);
-			m_next.clipVert(hirez, &scratchClipVerts[numScratchClipVerts++]);
-			m_next.clipVert(hirez, vert1);
+			scratchClipVerts[numScratchClipVerts] = clipPoint<CLIPPERMODE, COORD, WHICH>(vert1, vert0);
+			m_next.clipVert(&scratchClipVerts[numScratchClipVerts++]);
+			m_next.clipVert(vert1);
 		}
 	}
 };
@@ -3166,14 +3269,14 @@ public:
 		m_numVerts = 0;
 	}
 	
-	void clipVert(bool hirez, const VERT *vert)
+	void clipVert(const VERT *vert)
 	{
 		assert((u32)m_numVerts < MAX_CLIPPED_VERTS);
 		*m_nextDestVert++ = *vert;
 		m_numVerts++;
 	}
 	
-	int finish(bool hirez)
+	int finish()
 	{
 		return m_numVerts;
 	}
@@ -3185,54 +3288,123 @@ private:
 
 // see "Template juggling with Sutherland-Hodgman" http://www.codeguru.com/cpp/misc/misc/graphics/article.php/c8965__2/
 // for the idea behind setting things up like this.
-static ClipperOutput clipperOut;
-typedef ClipperPlane<2, 1,ClipperOutput> Stage6; static Stage6 clipper6 (clipperOut); // back plane //TODO - we need to parameterize back plane clipping
-typedef ClipperPlane<2,-1,Stage6> Stage5;        static Stage5 clipper5 (clipper6); // front plane
-typedef ClipperPlane<1, 1,Stage5> Stage4;        static Stage4 clipper4 (clipper5); // top plane
-typedef ClipperPlane<1,-1,Stage4> Stage3;        static Stage3 clipper3 (clipper4); // bottom plane
-typedef ClipperPlane<0, 1,Stage3> Stage2;        static Stage2 clipper2 (clipper3); // right plane
-typedef ClipperPlane<0,-1,Stage2> Stage1;        static Stage1 clipper  (clipper2); // left plane
 
-template<bool USEHIRESINTERPOLATE>
-void GFX3D_Clipper::clipPoly(const POLY &poly, const VERT **verts)
+// Non-interpolated clippers
+static ClipperOutput clipperOut;
+typedef ClipperPlane<ClipperMode_Full, 2, 1,ClipperOutput> Stage6; static Stage6 clipper6 (clipperOut); // back plane //TODO - we need to parameterize back plane clipping
+typedef ClipperPlane<ClipperMode_Full, 2,-1,Stage6> Stage5;        static Stage5 clipper5 (clipper6); // front plane
+typedef ClipperPlane<ClipperMode_Full, 1, 1,Stage5> Stage4;        static Stage4 clipper4 (clipper5); // top plane
+typedef ClipperPlane<ClipperMode_Full, 1,-1,Stage4> Stage3;        static Stage3 clipper3 (clipper4); // bottom plane
+typedef ClipperPlane<ClipperMode_Full, 0, 1,Stage3> Stage2;        static Stage2 clipper2 (clipper3); // right plane
+typedef ClipperPlane<ClipperMode_Full, 0,-1,Stage2> Stage1;        static Stage1 clipper1 (clipper2); // left plane
+
+// Interpolated clippers
+static ClipperOutput clipperOuti;
+typedef ClipperPlane<ClipperMode_FullColorInterpolate, 2, 1,ClipperOutput> Stage6i; static Stage6i clipper6i (clipperOuti); // back plane //TODO - we need to parameterize back plane clipping
+typedef ClipperPlane<ClipperMode_FullColorInterpolate, 2,-1,Stage6i> Stage5i;       static Stage5i clipper5i (clipper6i); // front plane
+typedef ClipperPlane<ClipperMode_FullColorInterpolate, 1, 1,Stage5i> Stage4i;       static Stage4i clipper4i (clipper5i); // top plane
+typedef ClipperPlane<ClipperMode_FullColorInterpolate, 1,-1,Stage4i> Stage3i;       static Stage3i clipper3i (clipper4i); // bottom plane
+typedef ClipperPlane<ClipperMode_FullColorInterpolate, 0, 1,Stage3i> Stage2i;       static Stage2i clipper2i (clipper3i); // right plane
+typedef ClipperPlane<ClipperMode_FullColorInterpolate, 0,-1,Stage2i> Stage1i;       static Stage1i clipper1i (clipper2i); // left plane
+
+// Determine's clip status only
+static ClipperOutput clipperOutd;
+typedef ClipperPlane<ClipperMode_DetermineClipOnly, 2, 1,ClipperOutput> Stage6d; static Stage6d clipper6d (clipperOutd); // back plane //TODO - we need to parameterize back plane clipping
+typedef ClipperPlane<ClipperMode_DetermineClipOnly, 2,-1,Stage6d> Stage5d;       static Stage5d clipper5d (clipper6d); // front plane
+typedef ClipperPlane<ClipperMode_DetermineClipOnly, 1, 1,Stage5d> Stage4d;       static Stage4d clipper4d (clipper5d); // top plane
+typedef ClipperPlane<ClipperMode_DetermineClipOnly, 1,-1,Stage4d> Stage3d;       static Stage3d clipper3d (clipper4d); // bottom plane
+typedef ClipperPlane<ClipperMode_DetermineClipOnly, 0, 1,Stage3d> Stage2d;       static Stage2d clipper2d (clipper3d); // right plane
+typedef ClipperPlane<ClipperMode_DetermineClipOnly, 0,-1,Stage2d> Stage1d;       static Stage1d clipper1d (clipper2d); // left plane
+
+GFX3D_Clipper::GFX3D_Clipper()
+{
+	_clippedPolyList = NULL;
+	_clippedPolyCounter = 0;
+}
+
+const CPoly* GFX3D_Clipper::GetClippedPolyBufferPtr()
+{
+	return this->_clippedPolyList;
+}
+
+void GFX3D_Clipper::SetClippedPolyBufferPtr(CPoly *bufferPtr)
+{
+	this->_clippedPolyList = bufferPtr;
+}
+
+const CPoly& GFX3D_Clipper::GetClippedPolyByIndex(size_t index) const
+{
+	return this->_clippedPolyList[index];
+}
+
+size_t GFX3D_Clipper::GetPolyCount() const
+{
+	return this->_clippedPolyCounter;
+}
+
+void GFX3D_Clipper::Reset()
+{
+	this->_clippedPolyCounter = 0;
+}
+
+template <ClipperMode CLIPPERMODE>
+bool GFX3D_Clipper::ClipPoly(const u16 polyIndex, const POLY &poly, const VERT **verts)
 {
 	CLIPLOG("==Begin poly==\n");
 
+	PolygonType outType;
 	const PolygonType type = poly.type;
 	numScratchClipVerts = 0;
-
-	clipper.init(clippedPolys[clippedPolyCounter].clipVerts);
-	for (size_t i = 0; i < type; i++)
-		clipper.clipVert(USEHIRESINTERPOLATE, verts[i]);
 	
-	const PolygonType outType = (PolygonType)clipper.finish(USEHIRESINTERPOLATE);
-
+	switch (CLIPPERMODE)
+	{
+		case ClipperMode_Full:
+		{
+			clipper1.init(this->_clippedPolyList[this->_clippedPolyCounter].clipVerts);
+			for (size_t i = 0; i < type; i++)
+				clipper1.clipVert(verts[i]);
+			
+			outType = (PolygonType)clipper1.finish();
+			break;
+		}
+			
+		case ClipperMode_FullColorInterpolate:
+		{
+			clipper1i.init(this->_clippedPolyList[this->_clippedPolyCounter].clipVerts);
+			for (size_t i = 0; i < type; i++)
+				clipper1i.clipVert(verts[i]);
+			
+			outType = (PolygonType)clipper1i.finish();
+			break;
+		}
+			
+		case ClipperMode_DetermineClipOnly:
+		{
+			clipper1d.init(this->_clippedPolyList[this->_clippedPolyCounter].clipVerts);
+			for (size_t i = 0; i < type; i++)
+				clipper1d.clipVert(verts[i]);
+			
+			outType = (PolygonType)clipper1d.finish();
+			break;
+		}
+	}
+	
 	assert((u32)outType < MAX_CLIPPED_VERTS);
 	if (outType < POLYGON_TYPE_TRIANGLE)
 	{
 		//a totally clipped poly. discard it.
 		//or, a degenerate poly. we're not handling these right now
+		return false;
 	}
 	else
 	{
-		clippedPolys[clippedPolyCounter].type = outType;
-		clippedPolys[clippedPolyCounter].poly = (POLY *)&poly;
-		clippedPolyCounter++;
+		CPoly &thePoly = this->_clippedPolyList[this->_clippedPolyCounter];
+		thePoly.index = polyIndex;
+		thePoly.type = outType;
+		thePoly.poly = (POLY *)&poly;
+		
+		this->_clippedPolyCounter++;
 	}
+	
+	return true;
 }
-//these templates needed to be instantiated manually
-template void GFX3D_Clipper::clipPoly<true>(const POLY &poly, const VERT **verts);
-template void GFX3D_Clipper::clipPoly<false>(const POLY &poly, const VERT **verts);
-
-void GFX3D_Clipper::clipSegmentVsPlane(VERT** verts, const int coord, int which)
-{
-	// not used (it's probably ok to delete this function)
-	assert(0);
-}
-
-void GFX3D_Clipper::clipPolyVsPlane(const int coord, int which)
-{
-	// not used (it's probably ok to delete this function)
-	assert(0);
-}
-

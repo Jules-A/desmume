@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2009-2017 DeSmuME team
+	Copyright (C) 2009-2019 DeSmuME team
 
 	This file is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@
 	#include "frontend/windows/main.h"
 	#include "frontend/windows/video.h"
 	#include "frontend/windows/resource.h"
+	#include "frontend/windows/display.h"
 #else
 	// TODO: define appropriate types for menu
 	typedef void* PlatformMenu;
@@ -151,7 +152,7 @@ struct LuaContextInfo {
 	void(*onstop)(int uid, bool statusOK);
 };
 std::map<int, LuaContextInfo*> luaContextInfo;
-std::map<lua_State*, int> luaStateToUIDMap;
+std::map<lua_State*, uintptr_t> luaStateToUIDMap;
 int g_numScriptsStarted = 0;
 bool g_anyScriptsHighSpeed = false;
 bool g_stopAllScriptsEnabled = true;
@@ -203,6 +204,7 @@ static const char* luaCallIDStrings [] =
 	"CALL_AFTERLOAD",
 	"CALL_ONSTART",
 	"CALL_ONINITMENU",
+	"CALL_REGISTER3DEVENT",
 
 	"CALL_HOTKEY_1",
 	"CALL_HOTKEY_2",
@@ -221,7 +223,9 @@ static const char* luaCallIDStrings [] =
 	"CALL_HOTKEY_15",
 	"CALL_HOTKEY_16",
 };
-static const int _makeSureWeHaveTheRightNumberOfStrings = (sizeof(luaCallIDStrings)/sizeof(*luaCallIDStrings) == LUACALL_COUNT) ? 1 : 0;
+
+//make Sure We Have The Right Number Of Strings
+CTASSERT(ARRAY_SIZE(luaCallIDStrings) == LUACALL_COUNT);
 
 static const char* luaMemHookTypeStrings [] =
 {
@@ -233,7 +237,9 @@ static const char* luaMemHookTypeStrings [] =
 	"MEMHOOK_READ_SUB",
 	"MEMHOOK_EXEC_SUB",
 };
-static const int _makeSureWeHaveTheRightNumberOfStrings2 = (sizeof(luaMemHookTypeStrings)/sizeof(*luaMemHookTypeStrings) == LUAMEMHOOK_COUNT) ? 1 : 0;
+
+//make Sure We Have The Right Number Of Strings 2
+CTASSERT(ARRAY_SIZE(luaMemHookTypeStrings) == LUAMEMHOOK_COUNT);
 
 void StopScriptIfFinished(int uid, bool justReturned = false);
 void SetSaveKey(LuaContextInfo& info, const char* key);
@@ -505,7 +511,7 @@ static int doPopup(lua_State* L, const char* deftype, const char* deficon)
 	static const int etypes [] = {MB_OK, MB_YESNO, MB_YESNOCANCEL, MB_OKCANCEL, MB_ABORTRETRYIGNORE};
 	static const int eicons [] = {MB_ICONINFORMATION, MB_ICONQUESTION, MB_ICONWARNING, MB_ICONERROR};
 //	DialogsOpen++;
-	int uid = luaStateToUIDMap[L->l_G->mainthread];
+	uintptr_t uid = luaStateToUIDMap[L->l_G->mainthread];
 	EnableWindow(MainWindow->getHWnd(), false);
 //	if (Full_Screen)
 //	{
@@ -1437,7 +1443,7 @@ void indicateBusy(lua_State* L, bool busy)
 	}
 */
 #if defined(_WIN32)
-	int uid = luaStateToUIDMap[L->l_G->mainthread];
+	uintptr_t uid = luaStateToUIDMap[L->l_G->mainthread];
 	HWND hDlg = (HWND)uid;
 	char str [1024];
 	GetWindowText(hDlg, str, 1000);
@@ -2265,7 +2271,7 @@ public:
 					{
 						const NDSDisplayInfo &dispInfo = GPU->GetDisplayInfo();
 						char temp [256];
-						sprintf(temp, " " /*"mismatch at "*/ "byte %d(0x%X at 0x%X): %d(0x%X) != %d(0x%X)\n", i, i, dst, *src,*src, *dst,*dst);
+						sprintf(temp, " " /*"mismatch at "*/ "byte %d(0x%X at %p): %d(0x%X) != %d(0x%X)\n", i, i, dst, *src,*src, *dst,*dst);
 
 						if(ptr == dispInfo.masterNativeBuffer || ptr == dispInfo.masterCustomBuffer || ptr == GPU->GetEngineMain()->Get3DFramebufferMain()) // ignore screen-only differences since frame skipping can cause them and it's probably ok
 							break;
@@ -2485,25 +2491,25 @@ DEFINE_LUA_FUNCTION(joy_peekup, "")
 static const struct ColorMapping
 {
 	const char* name;
-	int value;
+	s32 value;
 }
 s_colorMapping [] =
 {
-	{"white",     0xFFFFFFFF},
-	{"black",     0x000000FF},
-	{"clear",     0x00000000},
-	{"gray",      0x7F7F7FFF},
-	{"grey",      0x7F7F7FFF},
-	{"red",       0xFF0000FF},
-	{"orange",    0xFF7F00FF},
-	{"yellow",    0xFFFF00FF},
-	{"chartreuse",0x7FFF00FF},
-	{"green",     0x00FF00FF},
-	{"teal",      0x00FF7FFF},
-	{"cyan" ,     0x00FFFFFF},
-	{"blue",      0x0000FFFF},
-	{"purple",    0x7F00FFFF},
-	{"magenta",   0xFF00FFFF},
+	{"white",     (s32)0xFFFFFFFF},
+	{"black",     (s32)0x000000FF},
+	{"clear",     (s32)0x00000000},
+	{"gray",      (s32)0x7F7F7FFF},
+	{"grey",      (s32)0x7F7F7FFF},
+	{"red",       (s32)0xFF0000FF},
+	{"orange",    (s32)0xFF7F00FF},
+	{"yellow",    (s32)0xFFFF00FF},
+	{"chartreuse",(s32)0x7FFF00FF},
+	{"green",     (s32)0x00FF00FF},
+	{"teal",      (s32)0x00FF7FFF},
+	{"cyan" ,     (s32)0x00FFFFFF},
+	{"blue",      (s32)0x0000FFFF},
+	{"purple",    (s32)0x7F00FFFF},
+	{"magenta",   (s32)0xFF00FFFF},
 };
 
 inline int getcolor_unmodified(lua_State *L, int idx, int defaultColor)
@@ -3270,6 +3276,20 @@ DEFINE_LUA_FUNCTION(gui_settransparency, "transparency_4_to_0")
 	lua_number2int(opac, opacF);
 	LuaContextInfo& info = GetCurrentInfo();
 	info.transparencyModifier = opac;
+	return 0;
+}
+
+// gui.setlayermask(int main, int sub)
+// enables or disables display layers for each GPU according to the bitfields provided
+// e.g. 31 (11111) shows all layers; 0 (00000) hides all layers; 16 (10000) shows only the object layer (layer 4)
+// this function is only supported by the windows frontend.
+DEFINE_LUA_FUNCTION(gui_setlayermask, "main,sub")
+{
+#if defined(WIN32)
+	lua_Integer main = luaL_checkint(L, 1);
+	lua_Integer sub = luaL_checkint(L, 2);
+	SetLayerMasks(main, sub);
+#endif
 	return 0;
 }
 
@@ -4856,6 +4876,7 @@ static const struct luaL_reg guilib [] =
 	{"transparency", gui_settransparency},
 	{"popup", gui_popup},
 	{"parsecolor", gui_parsecolor},
+	{"setlayermask", gui_setlayermask},
 	{"gdscreenshot", gui_gdscreenshot},
 	{"gdoverlay", gui_gdoverlay},
 	{"redraw", emu_redraw}, // some people might think of this as more of a GUI function
