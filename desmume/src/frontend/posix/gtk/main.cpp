@@ -138,6 +138,8 @@ static void ResetSaveStateTimes();
 static void LoadSaveStateInfo();
 static void Printscreen();
 static void Reset();
+static void SetAudioVolume();
+static void SetFirmwareLanguage();
 static void Edit_Controls();
 static void Edit_Joystick_Controls();
 static void MenuSave(GtkMenuItem *item, gpointer slot);
@@ -358,6 +360,8 @@ static const char *ui_description =
 "        <menuitem action='save_t5'/>"
 "        <menuitem action='save_t6'/>"
 "      </menu>"
+"      <menuitem action='setaudiovolume'/>"
+"      <menuitem action='setfirmwarelanguage'/>"
 "      <menuitem action='editctrls'/>"
 "      <menuitem action='editjoyctrls'/>"
 "    </menu>"
@@ -436,6 +440,8 @@ static const GtkActionEntry action_entries[] = {
         { "cheatsearch",     NULL,      "_Search",        NULL,       NULL,   CheatSearch },
         { "cheatlist",       NULL,      "_List",        NULL,       NULL,   CheatList },
       { "ConfigSaveMenu", NULL, "_Saves" },
+      { "setaudiovolume", NULL, "Set audio _volume", NULL, NULL, SetAudioVolume },
+      { "setfirmwarelanguage", NULL, "Set firmware _language", NULL, NULL, SetFirmwareLanguage },
       { "editctrls",  NULL,        "_Edit controls",NULL,    NULL,   Edit_Controls },
       { "editjoyctrls",  NULL,     "Edit _Joystick controls",NULL,       NULL,   Edit_Joystick_Controls },
 
@@ -1904,6 +1910,83 @@ static gint Key_Release(GtkWidget *w, GdkEventKey *e, gpointer data)
 
 }
 
+/////////////////////////////// SET AUDIO VOLUME //////////////////////////////////////
+
+static void CallbackSetAudioVolume(GtkWidget *hscale, gpointer data)
+{
+	SNDSDLSetAudioVolume(gtk_range_get_value(GTK_RANGE(hscale)));
+	config.audio_volume = SNDSDLGetAudioVolume();
+}
+
+static void SetAudioVolume()
+{
+	GtkWidget *dialog = NULL;
+	GtkWidget *hscale = NULL;
+	int audio_volume = SNDSDLGetAudioVolume();
+	dialog = gtk_dialog_new_with_buttons("Set audio volume", GTK_WINDOW(pWindow), GTK_DIALOG_MODAL, GTK_STOCK_OK, GTK_RESPONSE_OK, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, NULL);
+	hscale = gtk_hscale_new_with_range(0, SDL_MIX_MAXVOLUME, 1);
+	gtk_range_set_value(GTK_RANGE(hscale), SNDSDLGetAudioVolume());
+	g_signal_connect(G_OBJECT(hscale), "value-changed", G_CALLBACK(CallbackSetAudioVolume), NULL);
+	gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox), hscale, TRUE, FALSE, 0);
+	gtk_widget_show_all(GTK_DIALOG(dialog)->vbox);
+	switch(gtk_dialog_run(GTK_DIALOG(dialog)))
+	{
+		case GTK_RESPONSE_OK:
+			break;
+		case GTK_RESPONSE_CANCEL:
+		case GTK_RESPONSE_NONE:
+			SNDSDLSetAudioVolume(audio_volume);
+			config.audio_volume = SNDSDLGetAudioVolume();
+			break;
+	}
+	gtk_widget_destroy(dialog);
+}
+
+/////////////////////////////// SET FIRMWARE LANGUAGE //////////////////////////////////////
+
+static void CallbackSetFirmwareLanguage(GtkWidget *check_button, gpointer data)
+{
+	gtk_widget_set_sensitive(GTK_WIDGET(data), gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(check_button)));
+}
+
+static void SetFirmwareLanguage()
+{
+	GtkWidget *dialog = NULL;
+	GtkWidget *combo_box_text = NULL;
+	GtkWidget *check_button = NULL;
+	const char *languages[6] = {"Japanese", "English", "French", "German", "Italian", "Spanish"};
+	gchar *text = NULL;
+	dialog = gtk_dialog_new_with_buttons("Set firmware language", GTK_WINDOW(pWindow), GTK_DIALOG_MODAL, GTK_STOCK_OK, GTK_RESPONSE_OK, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, NULL);
+	combo_box_text = gtk_combo_box_text_new();
+	for(int index = 0; index < 6; index++)
+		gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_box_text), languages[index]);
+	gtk_combo_box_set_active(GTK_COMBO_BOX(combo_box_text), config.firmware_language);
+	gtk_widget_set_sensitive(combo_box_text, config.command_line_overriding_firmware_language);
+	check_button = gtk_check_button_new_with_mnemonic("_Enable command line overriding");
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_button), config.command_line_overriding_firmware_language);
+	g_signal_connect(G_OBJECT(check_button), "toggled", G_CALLBACK(CallbackSetFirmwareLanguage), combo_box_text);
+	gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox), check_button, TRUE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox), combo_box_text, TRUE, FALSE, 0);
+	gtk_widget_show_all(GTK_DIALOG(dialog)->vbox);
+	switch(gtk_dialog_run(GTK_DIALOG(dialog)))
+	{
+		case GTK_RESPONSE_OK:
+			text = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo_box_text));
+			for(int index = 0; index < 6; index++)
+				if(strcmp(text, languages[index]) == 0)
+				{
+					CommonSettings.fwConfig.language = index;
+					config.firmware_language = index;
+				}
+			config.command_line_overriding_firmware_language = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(check_button));
+			break;
+		case GTK_RESPONSE_CANCEL:
+		case GTK_RESPONSE_NONE:
+			break;
+	}
+	gtk_widget_destroy(dialog);
+}
+
 /////////////////////////////// CONTROLS EDIT //////////////////////////////////////
 
 static void AcceptNewInputKey(GtkWidget *w, GdkEventKey *e, struct modify_key_ctx *ctx)
@@ -3023,6 +3106,10 @@ common_gtk_main( class configured_features *my_config)
 		CommonSettings.fwConfig.language = my_config->firmware_language;
     }
 
+    /* if the command line overriding is enabled then use the language set on the GUI */
+    if(config.command_line_overriding_firmware_language)
+		CommonSettings.fwConfig.language = config.firmware_language;
+
     //------------------addons----------
     my_config->process_addonCommands();
 
@@ -3279,7 +3366,6 @@ common_gtk_main( class configured_features *my_config)
     gtk_action_set_sensitive(gtk_action_group_get_action(action_group, "cheatsearch"), FALSE);
 
     nds_screen.gap_size = config.view_gap ? GAP_SIZE : 0;
-    gtk_toggle_action_set_active((GtkToggleAction*)gtk_action_group_get_action(action_group, "gap"), config.view_gap);
 
     nds_screen.swap = config.view_swap;
     gtk_toggle_action_set_active((GtkToggleAction*)gtk_action_group_get_action(action_group, "orient_swapscreens"), config.view_swap);
@@ -3308,6 +3394,10 @@ common_gtk_main( class configured_features *my_config)
 
     /* Creating the place for showing DS screens */
     pDrawingArea = gtk_drawing_area_new();
+
+    /* This toggle action must not be set active before the pDrawingArea initialization to avoid a GTK warning */
+    gtk_toggle_action_set_active((GtkToggleAction*)gtk_action_group_get_action(action_group, "gap"), config.view_gap);
+
     gtk_container_add (GTK_CONTAINER (pVBox), pDrawingArea);
 
     gtk_widget_set_events(pDrawingArea,
@@ -3452,6 +3542,8 @@ common_gtk_main( class configured_features *my_config)
     if (my_config->timeout > 0) {
         g_timeout_add_seconds(my_config->timeout, timeout_exit_cb, GINT_TO_POINTER(my_config->timeout));
     }
+
+    SNDSDLSetAudioVolume(config.audio_volume);
 
     /* Video filter parameters */
     video->SetFilterParameteri(VF_PARAM_SCANLINE_A, _scanline_filter_a);
